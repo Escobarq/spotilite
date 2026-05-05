@@ -50,12 +50,15 @@ func (t *Tray) Build() *menu.Menu {
 
 	appMenu.Append(menu.Separator())
 
-	// Run in Background toggle
-	appMenu.Append(menu.Checkbox(t.i18n.T("tray.runInBackground"), t.runInBackground, nil, func(cd *menu.CallbackData) {
-		t.runInBackground = cd.MenuItem.Checked
+	// Run in Background toggle (using visual checkmark for reliability on Windows)
+	bgLabel := t.formatToggleLabel("tray.runInBackground", t.runInBackground)
+	appMenu.Append(menu.Text(bgLabel, nil, func(_ *menu.CallbackData) {
+		t.runInBackground = !t.runInBackground
 		if t.onToggleBackground != nil {
 			t.onToggleBackground(t.runInBackground)
 		}
+		// Refresh menu to update the checkmark visual
+		t.Refresh()
 	}))
 
 	appMenu.Append(menu.Separator())
@@ -77,6 +80,15 @@ func (t *Tray) Build() *menu.Menu {
 	}))
 
 	return appMenu
+}
+
+// formatToggleLabel prefixes the label with a checkmark when active,
+// or an indentation when inactive, so the state is visually obvious.
+func (t *Tray) formatToggleLabel(key string, active bool) string {
+	if active {
+		return "[x] " + t.i18n.T(key)
+	}
+	return "[ ] " + t.i18n.T(key)
 }
 
 // Apply registers the built menu with the Wails runtime.

@@ -4,6 +4,7 @@ import (
 	"embed"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -13,7 +14,7 @@ import (
 
 	"spotilite/internal/app"
 	"spotilite/internal/i18n"
-	"spotilite/internal/tray"
+	apptray "spotilite/internal/systray"
 )
 
 //go:embed all:frontend/dist
@@ -25,32 +26,66 @@ func main() {
 	// Default: run in background when closing the window.
 	runInBackground := true
 
+	exe, err := os.Executable()
+	if err != nil {
+		exe = "."
+	}
+	iconPath := filepath.Join(filepath.Dir(exe), "build", "windows", "icon.ico")
+	// Fallback for development mode.
+	if _, err := os.Stat(iconPath); os.IsNotExist(err) {
+		iconPath = filepath.Join(".", "build", "windows", "icon.ico")
+	}
+
 	var application *app.App
 
-	trayManager := tray.New(translator, runInBackground, func(enabled bool) {
-		if application != nil {
-			application.SetBackgroundMode(enabled)
-		}
-	})
+	trayManager := apptray.NewManager(
+		translator,
+		iconPath,
+		runInBackground,
+		func() {
+			if application != nil {
+				application.ToggleWindowVisibility()
+			}
+		},
+		func() {
+			if application != nil {
+				application.ToggleWindowVisibility()
+			}
+		},
+		func() {
+			// Allow quit even if background mode is on.
+			os.Exit(0)
+		},
+		func(enabled bool) {
+			if application != nil {
+				application.SetBackgroundMode(enabled)
+			}
+		},
+		func(lang string) {
+			if application != nil {
+				application.SetLanguage(lang)
+			}
+		},
+	)
 
 	application = app.NewApp(translator, trayManager, runInBackground)
 
-	err := wails.Run(&options.App{
-		Title:  translator.T("app.title"),
-		Width:  1024,
-		Height: 768,
+	err = wails.Run(&options.App{
+		Title:     translator.T("app.title"),
+		Width:     1024,
+		Height:    768,
+		Frameless: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		// Spotify black (#191414) to blend the title bar with the webview.
-		BackgroundColour: &options.RGBA{R: 25, G: 20, B: 20, A: 255},
+		BackgroundColour: &options.RGBA{R: 0, G: 0, B: 0, A: 255},
 		Windows: &windows.Options{
-			Theme: windows.Dark,
+			WebviewIsTransparent: false,
+			WindowIsTranslucent:  false,
 		},
 		Mac: &mac.Options{
 			Appearance: mac.NSAppearanceNameDarkAqua,
 		},
-		Menu:          trayManager.Build(),
 		OnStartup:     application.Startup,
 		OnShutdown:    application.Shutdown,
 		OnBeforeClose: application.OnBeforeClose,
