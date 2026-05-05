@@ -12,10 +12,7 @@ type Manager struct{}
 func NewManager(
 	_ *i18n.Translator,
 	_ string,
-	_ bool,
-	_, _, _ func(),
-	_ func(bool),
-	_ func(string),
+	_, _ func(),
 ) *Manager {
 	return &Manager{}
 }
@@ -25,6 +22,3 @@ func (m *Manager) Start() {}
 
 // Refresh does nothing.
 func (m *Manager) Refresh() {}
-
-// SetBackgroundState does nothing.
-func (m *Manager) SetBackgroundState(_ bool) {}

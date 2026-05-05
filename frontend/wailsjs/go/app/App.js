@@ -6,16 +6,16 @@ export function Close() {
   return window['go']['app']['App']['Close']();
 }
 
+export function GetSettings() {
+  return window['go']['app']['App']['GetSettings']();
+}
+
 export function Greet(arg1) {
   return window['go']['app']['App']['Greet'](arg1);
 }
 
 export function IsBackgroundMode() {
   return window['go']['app']['App']['IsBackgroundMode']();
-}
-
-export function IsMaximized() {
-  return window['go']['app']['App']['IsMaximized']();
 }
 
 export function Maximize() {
@@ -32,10 +32,6 @@ export function SetBackgroundMode(arg1) {
 
 export function SetLanguage(arg1) {
   return window['go']['app']['App']['SetLanguage'](arg1);
-}
-
-export function ToggleMaximize() {
-  return window['go']['app']['App']['ToggleMaximize']();
 }
 
 export function ToggleWindowVisibility() {

@@ -12,6 +12,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 
+	"spotilite/internal/api"
 	"spotilite/internal/app"
 	"spotilite/internal/i18n"
 	apptray "spotilite/internal/systray"
@@ -31,49 +32,34 @@ func main() {
 		exe = "."
 	}
 	iconPath := filepath.Join(filepath.Dir(exe), "build", "windows", "icon.ico")
-	// Fallback for development mode.
 	if _, err := os.Stat(iconPath); os.IsNotExist(err) {
 		iconPath = filepath.Join(".", "build", "windows", "icon.ico")
 	}
 
 	var application *app.App
 
+	apiServer := api.NewServer(nil) // Handler will be set after App is created
+
 	trayManager := apptray.NewManager(
 		translator,
 		iconPath,
-		runInBackground,
 		func() {
 			if application != nil {
 				application.ToggleWindowVisibility()
 			}
 		},
 		func() {
-			if application != nil {
-				application.ToggleWindowVisibility()
-			}
-		},
-		func() {
-			// Allow quit even if background mode is on.
 			os.Exit(0)
-		},
-		func(enabled bool) {
-			if application != nil {
-				application.SetBackgroundMode(enabled)
-			}
-		},
-		func(lang string) {
-			if application != nil {
-				application.SetLanguage(lang)
-			}
 		},
 	)
 
-	application = app.NewApp(translator, trayManager, runInBackground)
+	application = app.NewApp(translator, trayManager, apiServer, runInBackground)
+	apiServer.SetHandler(application)
 
 	err = wails.Run(&options.App{
-		Title:     translator.T("app.title"),
-		Width:     1024,
-		Height:    768,
+		Title:  translator.T("app.title"),
+		Width:  1024,
+		Height: 768,
 		Frameless: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,

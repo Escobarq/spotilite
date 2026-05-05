@@ -5,31 +5,26 @@
 ### Interfaz de Usuario
 
 - [x] **Ventana frameless** sin barra de título nativa del sistema operativo.
-- [x] **Barra de título personalizada** con colores de Spotify (`#191414`).
-  - [x] Logo de Spotify + nombre "Spotilite".
-  - [x] Botón Minimizar (`─`).
-  - [x] Botón Maximizar / Restaurar (`□` / `❐`).
-  - [x] Botón Cerrar (`✕`) con hover rojo.
-- [x] **Arrastre de ventana** desde la barra de título personalizada.
-- [x] **Iframe de Spotify** sin bordes ni barras de desplazamiento visibles.
+- [x] **Barra flotante decorativa** integrada en la parte superior de Spotify.
+  - [x] Logo de Spotify (14px).
+  - [x] Texto "Spotilite".
+  - [x] Badge verde "DESKTOP".
+  - [x] Gradiente oscuro Spotify (`#191414` → `#121212`).
+  - [x] Empuja el contenido de Spotify 28px hacia abajo para no taparlo.
+- [x] **Tema oscuro** con fondo negro puro (`#000000`).
 
 ### System Tray (Bandeja del Sistema)
 
 - [x] **Icono nativo** visible en la bandeja de Windows.
-- [x] **Menú contextual** con clic derecho:
+- [x] **Menú contextual minimalista** con clic derecho:
   - [x] Mostrar Ventana.
-  - [x] Ocultar Ventana.
-  - [x] Toggle "Ejecutar en segundo plano" con checkmark visual `[x]`.
-  - [x] Submenú de idioma (Español / English).
   - [x] Salir.
-- [x] **Menú refrescable** al cambiar de idioma.
+- [x] **Diseño simplificado**: solo lo esencial, sin submenús ni toggles.
 
 ### Controles de Ventana
 
-- [x] **Minimizar** ventana.
-- [x] **Maximizar** ventana.
-- [x] **Restaurar** ventana desde maximizado.
-- [x] **Cerrar** ventana (respeta modo segundo plano).
+- [x] **Mostrar / Ocultar** ventana.
+- [x] **Cerrar** aplicación (desde system tray).
 
 ### Atajos de Teclado
 
@@ -37,53 +32,53 @@
 
 ### Notificaciones
 
-- [x] **Notificación nativa** al minimizar a la bandeja (modo segundo plano activo).
-- [x] Texto localizado según el idioma seleccionado.
+- [x] **Notificación nativa** al minimizar a la bandeja.
+- [x] Texto localizado según el idioma del sistema.
 
 ### Internacionalización (i18n)
 
 - [x] Soporte para **Español** (`es`).
 - [x] Soporte para **Inglés** (`en`).
-- [x] Cambio de idioma en tiempo real desde el menú de la bandeja.
-- [x] Fallback automático a inglés si falta una traducción.
+- [x] **Detección automática** del idioma del sistema operativo al inicio.
+- [x] Fallback automático a inglés.
 
 ### Modo Segundo Plano
 
-- [x] Al cerrar la ventana con `✕`, si está activado, se oculta en lugar de cerrar.
+- [x] Al cerrar la ventana, se oculta en lugar de destruirse.
 - [x] Icono permanece en la bandeja.
 - [x] Notificación toast informa que sigue ejecutándose.
-- [x] Toggle desde el menú contextual de la bandeja.
+- [x] Siempre activo (no requiere configuración).
 
 ### Personalización de Spotify
 
-- [x] **Ocultar botón "Instalar app de escritorio"** (`data-testid="download-button"`).
-- [x] **Ocultar botón "Conectar a un dispositivo"** (`data-testid="device-picker-icon-button"`).
+- [x] **Ocultar botón "Instalar app de escritorio"**.
+- [x] **Ocultar botón "Conectar a un dispositivo"**.
 - [x] Inyección CSS periódica (cada 3 segundos) para persistir cambios en la SPA.
 
 ### Compatibilidad
 
 - [x] Windows 10/11 (soporte completo: frameless, tray, shortcuts, notificaciones).
-- [x] macOS (básico: frameless, ventana, controles).
-- [x] Linux (básico: frameless, ventana, controles).
+- [x] macOS (básico: frameless, ventana).
+- [x] Linux (básico: frameless, ventana).
 
 ## Funcionalidades Planificadas
 
 ### Corto Plazo
 
-- [ ] **Persistencia de preferencias**: Guardar idioma y modo segundo plano entre sesiones.
+- [ ] **Persistencia de preferencias**: Guardar estado entre sesiones.
 - [ ] **Soporte completo macOS**: System tray nativo y atajos de teclado.
 - [ ] **Soporte completo Linux**: System tray nativo y atajos de teclado.
 
 ### Medio Plazo
 
-- [ ] **Integración con Spotify API**: Controles multimedia nativos (play/pause/next/prev).
+- [ ] **Integración con Spotify API**: Controles multimedia nativos.
 - [ ] **Media Keys**: Soporte para teclas multimedia del teclado.
 - [ ] **Mini player**: Ventana flotante pequeña con controles básicos.
 
 ### Largo Plazo
 
-- [ ] **Temas personalizables**: Colores de la barra de título configurable.
-- [ ] **Plugins**: Sistema de extensiones para personalizar la experiencia.
+- [ ] **Temas personalizables**: Colores de la barra flotante configurable.
+- [ ] **Plugins**: Sistema de extensiones.
 - [ ] **Actualizaciones automáticas**: Integración con GoReleaser + auto-updater.
 
 ## Historial de Cambios
@@ -111,8 +106,14 @@
 - Ventana sin marco nativo.
 - Barra de título inyectada en Spotify.
 
-### Sesión 6 — Correcciones y Estabilidad
+### Sesión 6 — Correcciones Arquitectónicas
 - Restauración de arquitectura iframe + React para controles funcionales.
-- Corrección de bindings (`window.go.app.App`).
-- Corrección de draggable en botones (`--wails-draggable:no-drag`).
-- Documentación completa (`docs/`).
+- Corrección de bindings.
+- Documentación completa.
+
+### Sesión 7 — Arquitectura Limpia Final
+- **Eliminación de barra nativa**: Frameless definitivo.
+- **Simplificación del tray**: Solo Show y Quit.
+- **Idioma automático**: Detección del sistema operativo.
+- **Barra flotante decorativa**: Logo + nombre + badge, sin botones.
+- **Controles alternativos**: Tray + atajo global.

@@ -1,7 +1,7 @@
 //go:build windows
 
 // Package systray wraps getlantern/systray to provide a native Windows system
-// tray icon and context menu for spotilite.
+// tray icon and a minimal context menu for spotilite.
 package systray
 
 import (
@@ -13,26 +13,18 @@ import (
 	"spotilite/internal/i18n"
 )
 
-// Manager handles the system tray lifecycle, icon and context menu.
+// Manager handles the system tray lifecycle, icon and minimal context menu.
 type Manager struct {
-	i18n               *i18n.Translator
-	runInBackground    bool
-	iconPath           string
-	onShow             func()
-	onHide             func()
-	onQuit             func()
-	onToggleBackground func(enabled bool)
-	onSetLanguage      func(lang string)
-	items              menuItems
+	i18n    *i18n.Translator
+	iconPath string
+	onShow  func()
+	onQuit  func()
+	items   menuItems
 }
 
 type menuItems struct {
-	show             *systray.MenuItem
-	hide             *systray.MenuItem
-	bg               *systray.MenuItem
-	langEN           *systray.MenuItem
-	langES           *systray.MenuItem
-	quit             *systray.MenuItem
+	show *systray.MenuItem
+	quit *systray.MenuItem
 }
 
 // NewManager creates a system tray manager. iconPath should point to a .ico
@@ -40,20 +32,13 @@ type menuItems struct {
 func NewManager(
 	i18n *i18n.Translator,
 	iconPath string,
-	runInBackground bool,
-	onShow, onHide, onQuit func(),
-	onToggleBackground func(enabled bool),
-	onSetLanguage func(lang string),
+	onShow, onQuit func(),
 ) *Manager {
 	return &Manager{
-		i18n:               i18n,
-		iconPath:           iconPath,
-		runInBackground:    runInBackground,
-		onShow:             onShow,
-		onHide:             onHide,
-		onQuit:             onQuit,
-		onToggleBackground: onToggleBackground,
-		onSetLanguage:      onSetLanguage,
+		i18n:     i18n,
+		iconPath: iconPath,
+		onShow:   onShow,
+		onQuit:   onQuit,
 	}
 }
 
@@ -63,26 +48,13 @@ func (m *Manager) Start() {
 	go systray.Run(m.onReady, m.onExit)
 }
 
-// Refresh updates all menu item labels to reflect the current language and
-// background-mode state. Must be called after language changes.
+// Refresh updates menu item labels to reflect the current language.
 func (m *Manager) Refresh() {
 	if m.items.show == nil {
 		return
 	}
 	m.items.show.SetTitle(m.i18n.T("tray.show"))
-	m.items.hide.SetTitle(m.i18n.T("tray.hide"))
-	m.items.bg.SetTitle(m.formatToggleLabel())
-	m.items.langEN.SetTitle(m.i18n.T("tray.lang.en"))
-	m.items.langES.SetTitle(m.i18n.T("tray.lang.es"))
 	m.items.quit.SetTitle(m.i18n.T("tray.quit"))
-}
-
-// SetBackgroundState updates the visual state of the background-mode item.
-func (m *Manager) SetBackgroundState(enabled bool) {
-	m.runInBackground = enabled
-	if m.items.bg != nil {
-		m.items.bg.SetTitle(m.formatToggleLabel())
-	}
 }
 
 func (m *Manager) onReady() {
@@ -92,18 +64,9 @@ func (m *Manager) onReady() {
 	} else {
 		systray.SetIcon(iconBytes)
 	}
-	systray.SetTooltip("Spotilite")
+	systray.SetTooltip(m.i18n.T("app.title"))
 
 	m.items.show = systray.AddMenuItem(m.i18n.T("tray.show"), "Show window")
-	m.items.hide = systray.AddMenuItem(m.i18n.T("tray.hide"), "Hide window")
-	systray.AddSeparator()
-	m.items.bg = systray.AddMenuItem(m.formatToggleLabel(), "Toggle background mode")
-	systray.AddSeparator()
-
-	langMenu := systray.AddMenuItem(m.i18n.T("tray.language"), "Change language")
-	m.items.langEN = langMenu.AddSubMenuItem(m.i18n.T("tray.lang.en"), "Switch to English")
-	m.items.langES = langMenu.AddSubMenuItem(m.i18n.T("tray.lang.es"), "Switch to Spanish")
-
 	systray.AddSeparator()
 	m.items.quit = systray.AddMenuItem(m.i18n.T("tray.quit"), "Quit application")
 
@@ -117,24 +80,6 @@ func (m *Manager) handleClicks() {
 			if m.onShow != nil {
 				m.onShow()
 			}
-		case <-m.items.hide.ClickedCh:
-			if m.onHide != nil {
-				m.onHide()
-			}
-		case <-m.items.bg.ClickedCh:
-			m.runInBackground = !m.runInBackground
-			m.items.bg.SetTitle(m.formatToggleLabel())
-			if m.onToggleBackground != nil {
-				m.onToggleBackground(m.runInBackground)
-			}
-		case <-m.items.langEN.ClickedCh:
-			if m.onSetLanguage != nil {
-				m.onSetLanguage(i18n.LangEnglish)
-			}
-		case <-m.items.langES.ClickedCh:
-			if m.onSetLanguage != nil {
-				m.onSetLanguage(i18n.LangSpanish)
-			}
 		case <-m.items.quit.ClickedCh:
 			if m.onQuit != nil {
 				m.onQuit()
@@ -146,11 +91,4 @@ func (m *Manager) handleClicks() {
 
 func (m *Manager) onExit() {
 	slog.Info("system tray exited")
-}
-
-func (m *Manager) formatToggleLabel() string {
-	if m.runInBackground {
-		return "[x] " + m.i18n.T("tray.runInBackground")
-	}
-	return "[ ] " + m.i18n.T("tray.runInBackground")
 }

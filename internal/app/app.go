@@ -9,6 +9,7 @@ import (
 	"github.com/gen2brain/beeep"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"spotilite/internal/api"
 	"spotilite/internal/i18n"
 	"spotilite/internal/shortcut"
 	"spotilite/internal/spotify"
@@ -22,17 +23,19 @@ type App struct {
 	i18n            *i18n.Translator
 	tray            *apptray.Manager
 	injector        *spotify.Injector
+	api             *api.Server
 	runInBackground bool
 	windowVisible   bool
 	maximized       bool
 }
 
 // NewApp creates a new App application struct with its dependencies injected.
-func NewApp(i18n *i18n.Translator, tray *apptray.Manager, runInBackground bool) *App {
+func NewApp(i18n *i18n.Translator, tray *apptray.Manager, apiServer *api.Server, runInBackground bool) *App {
 	return &App{
 		i18n:            i18n,
 		tray:            tray,
 		injector:        spotify.NewInjector(),
+		api:             apiServer,
 		runInBackground: runInBackground,
 		windowVisible:   true,
 	}
@@ -43,6 +46,7 @@ func NewApp(i18n *i18n.Translator, tray *apptray.Manager, runInBackground bool) 
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 
+	a.api.Start()
 	a.tray.Start()
 
 	if err := shortcut.Register(a.ToggleWindowVisibility); err != nil {
@@ -56,14 +60,16 @@ func (a *App) Startup(ctx context.Context) {
 
 // Shutdown is called when the app is about to quit.
 func (a *App) Shutdown(_ context.Context) {
-	slog.Info("shutting down, stopping global shortcuts")
+	slog.Info("shutting down, stopping global shortcuts and api")
 	shortcut.Unregister()
+	if err := a.api.Stop(context.Background()); err != nil {
+		slog.Warn("failed to stop api server", "error", err)
+	}
 }
 
 // SetBackgroundMode updates whether the app should hide to tray on close.
 func (a *App) SetBackgroundMode(enabled bool) {
 	a.runInBackground = enabled
-	a.tray.SetBackgroundState(enabled)
 	slog.Info("background mode changed", "enabled", enabled)
 }
 
@@ -77,6 +83,14 @@ func (a *App) SetLanguage(lang string) {
 	a.i18n.SetLanguage(lang)
 	a.tray.Refresh()
 	slog.Info("language changed", "lang", lang)
+}
+
+// GetSettings returns the current app settings.
+func (a *App) GetSettings() api.Settings {
+	return api.Settings{
+		Language:       a.i18n.Language(),
+		BackgroundMode: a.runInBackground,
+	}
 }
 
 // OnBeforeClose is invoked when the user attempts to close the main window.
@@ -102,7 +116,7 @@ func (a *App) OnBeforeClose(_ context.Context) bool {
 }
 
 // ---------------------------------------------------------------------------
-// Window controls (bound to frontend)
+// Window controls (bound to frontend + API)
 // ---------------------------------------------------------------------------
 
 // Minimize minimises the main window.
@@ -122,15 +136,6 @@ func (a *App) UnMaximize() {
 	a.maximized = false
 }
 
-// ToggleMaximize toggles between maximised and normal window state.
-func (a *App) ToggleMaximize() {
-	if a.maximized {
-		a.UnMaximize()
-	} else {
-		a.Maximize()
-	}
-}
-
 // Close closes the main window. Respects background mode.
 func (a *App) Close() {
 	if a.runInBackground {
@@ -140,11 +145,6 @@ func (a *App) Close() {
 	} else {
 		runtime.Quit(a.ctx)
 	}
-}
-
-// IsMaximized reports whether the window is currently maximised.
-func (a *App) IsMaximized() bool {
-	return runtime.WindowIsMaximised(a.ctx)
 }
 
 // ToggleWindowVisibility shows or hides the main window.

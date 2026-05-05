@@ -1,16 +1,16 @@
 # Spotilite
 
-Un cliente desktop ligero para Spotify construido con [Wails](https://wails.io/) y React. Proporciona una experiencia nativa integrada con el sistema operativo: ventana frameless con controles personalizados, system tray, atajos de teclado globales, notificaciones nativas e internacionalización.
+Un cliente desktop ligero para Spotify construido con [Wails](https://wails.io/) y React. Proporciona una experiencia nativa integrada con el sistema operativo: ventana frameless con barra de información flotante, system tray minimalista, atajos de teclado globales y notificaciones nativas.
 
 ![Spotilite](build/appicon.png)
 
 ## Características
 
-- 🎵 **Spotify Web** embebido en una ventana nativa sin barras de título del sistema operativo.
-- 🖥️ **Ventana frameless** con barra de título personalizada estilo Spotify.
-- 🔔 **System Tray** con icono nativo y menú contextual.
+- 🎵 **Spotify Web** embebido directamente en una ventana frameless sin barras de título del sistema operativo.
+- 🖥️ **Ventana frameless** con barra de información flotante estilo Spotify integrada en la interfaz.
+- 🔔 **System Tray** minimalista con icono nativo.
 - ⌨️ **Atajo global** `Ctrl+Shift+S` para mostrar/ocultar la ventana desde cualquier lugar.
-- 🌍 **Internacionalización** (i18n) con soporte para Español e Inglés.
+- 🌍 **Idioma automático** detectado del sistema operativo (Español / Inglés).
 - 🛡️ **Modo segundo plano**: minimiza a la bandeja en lugar de cerrar.
 - 🎨 **Tema oscuro** integrado con los colores de Spotify.
 - 🔕 **Oculta elementos de Spotify**: botón de descarga de app y conexión a dispositivos.
@@ -43,13 +43,13 @@ wails build
 
 ### Controles de Ventana
 
-La barra de título personalizada incluye:
+Como la ventana es **frameless** (sin barra nativa), los controles son:
 
-| Botón | Acción |
+| Acción | Método |
 |---|---|
-| `─` | Minimizar ventana |
-| `□` / `❐` | Maximizar / Restaurar |
-| `✕` | Cerrar (respeta modo segundo plano) |
+| **Mover ventana** | Arrastra desde la barra de información flotante de Spotilite |
+| **Mostrar / Ocultar** | `Ctrl + Shift + S` desde cualquier aplicación |
+| **Cerrar app** | Menú de bandeja → **Salir** |
 
 ### Atajos de Teclado
 
@@ -61,10 +61,10 @@ La barra de título personalizada incluye:
 
 Haz clic derecho en el icono de Spotilite en la bandeja del sistema:
 
-- **Mostrar Ventana** / **Hide Window**
-- **[x] Ejecutar en segundo plano** — toggle
-- **Idioma** → Español / English
+- **Mostrar Ventana**
 - **Salir**
+
+*(Diseño minimalista: solo lo esencial)*
 
 ## Arquitectura
 
@@ -72,15 +72,15 @@ Consulta [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) para una explicación de
 
 ## Documentación
 
-- [`docs/SETUP.md`](docs/SETUP.md) — Guía completa de instalación y desarrollo
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Arquitectura y diseño
 - [`docs/FEATURES.md`](docs/FEATURES.md) — Lista detallada de funcionalidades
 - [`docs/SESSIONS.md`](docs/SESSIONS.md) — Log de sesiones de desarrollo
+- [`docs/SETUP.md`](docs/SETUP.md) — Guía de instalación y desarrollo
 
 ## Tecnologías
 
 - **Backend**: Go 1.23, Wails v2
-- **Frontend**: React 18, Vite
+- **Frontend**: React 18, Vite (solo para pantalla de carga inicial)
 - **System Tray**: getlantern/systray (Windows)
 - **Notificaciones**: gen2brain/beeep
 - **Atajos Globales**: Windows API (RegisterHotKey, sin CGO)
