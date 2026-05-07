@@ -216,39 +216,6 @@ func (i *Injector) UpdateCustomCSS(ctx context.Context) {
 	runtime.WindowExecJS(ctx, js)
 }
 
-const titleBarCSS = `
-html, body { margin: 0 !important; padding: 0 !important; overflow: hidden !important; }
-#spotilite-title-bar {
-  position: fixed; top: 0; left: 0; width: 100%; height: 28px;
-  z-index: 2147483647; background: #191414;
-  display: flex; align-items: center; justify-content: space-between;
-  --wails-draggable: drag;
-  user-select: none;
-}
-#spotilite-title-bar .spotilite-left {
-  display: flex; align-items: center; gap: 8px;
-  padding-left: 12px; height: 100%;
-  --wails-draggable: drag;
-}
-#spotilite-title-bar .spotilite-logo {
-  width: 18px; height: 18px; background: #1DB954;
-  border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: bold; color: #000;
-}
-#spotilite-title-bar .spotilite-title {
-  color: #fff; font-size: 12px; font-weight: 600;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-#spotilite-title-bar .spotilite-right { display: flex; height: 100%; }
-#spotilite-title-bar .spotilite-btn {
-  width: 46px; height: 100%; background: transparent; border: none;
-  color: #b3b3b3; font-size: 14px; cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-#spotilite-title-bar .spotilite-btn:hover { background: #282828; color: #fff; }
-#spotilite-title-bar .spotilite-close:hover { background: #e81123; color: #fff; }
-`
-
 var baseSelectors = []string{
 	`a[href="/download"]`,
 	`a[href="/download/"]`,
