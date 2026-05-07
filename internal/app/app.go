@@ -1,4 +1,3 @@
-// Package app defines the Wails application structure and lifecycle hooks.
 package app
 
 import (
@@ -13,36 +12,33 @@ import (
 	"spotilite/internal/i18n"
 	"spotilite/internal/shortcut"
 	"spotilite/internal/spotify"
+	"spotilite/internal/spotify/modules"
 	apptray "spotilite/internal/systray"
 )
 
-// App is the Wails application struct that exposes bound methods to the
-// frontend and coordinates backend services.
 type App struct {
-	ctx             context.Context
-	i18n            *i18n.Translator
-	tray            *apptray.Manager
-	injector        *spotify.Injector
-	api             *api.Server
+	ctx context.Context
+	i18n *i18n.Translator
+	tray *apptray.Manager
+	injector *spotify.Injector
+	api *api.Server
 	runInBackground bool
-	windowVisible   bool
-	maximized       bool
+	windowVisible bool
+	maximized bool
 }
 
-// NewApp creates a new App application struct with its dependencies injected.
 func NewApp(i18n *i18n.Translator, tray *apptray.Manager, apiServer *api.Server, runInBackground bool) *App {
+	injector := spotify.NewInjector()
 	return &App{
-		i18n:            i18n,
-		tray:            tray,
-		injector:        spotify.NewInjector(),
-		api:             apiServer,
+		i18n: i18n,
+		tray: tray,
+		injector: injector,
+		api: apiServer,
 		runInBackground: runInBackground,
-		windowVisible:   true,
+		windowVisible: true,
 	}
 }
 
-// Startup is called when the app starts. It wires runtime context, starts the
-// Spotify injector, applies the system tray, and registers global shortcuts.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 
@@ -58,7 +54,6 @@ func (a *App) Startup(ctx context.Context) {
 	a.injector.Start(ctx)
 }
 
-// Shutdown is called when the app is about to quit.
 func (a *App) Shutdown(_ context.Context) {
 	slog.Info("shutting down, stopping global shortcuts and api")
 	shortcut.Unregister()
@@ -67,25 +62,21 @@ func (a *App) Shutdown(_ context.Context) {
 	}
 }
 
-// SetBackgroundMode updates whether the app should hide to tray on close.
 func (a *App) SetBackgroundMode(enabled bool) {
 	a.runInBackground = enabled
 	slog.Info("background mode changed", "enabled", enabled)
 }
 
-// IsBackgroundMode reports whether the app is configured to run in background.
 func (a *App) IsBackgroundMode() bool {
 	return a.runInBackground
 }
 
-// SetLanguage changes the app language and refreshes the tray menu labels.
 func (a *App) SetLanguage(lang string) {
 	a.i18n.SetLanguage(lang)
 	a.tray.Refresh()
 	slog.Info("language changed", "lang", lang)
 }
 
-// GetSettings returns the current app settings.
 func (a *App) GetSettings() api.Settings {
 	return api.Settings{
 		Language:       a.i18n.Language(),
@@ -93,8 +84,51 @@ func (a *App) GetSettings() api.Settings {
 	}
 }
 
-// OnBeforeClose is invoked when the user attempts to close the main window.
-// If background mode is enabled, the window is hidden instead of destroyed.
+func (a *App) SetModuleEnabled(name string, enabled bool) {
+	m := a.injector.GetModule(name)
+	if m == nil {
+		slog.Warn("module not found", "name", name)
+		return
+	}
+	m.SetEnabled(enabled)
+	slog.Info("module toggled", "name", name, "enabled", enabled)
+}
+
+func (a *App) SetLyricsTheme(css string) {
+	localStorage := `localStorage.setItem('spotilite.custom_css', ` + "`" + css + "`" + `);`
+	runtime.WindowExecJS(a.ctx, localStorage)
+	a.injector.UpdateCustomCSS(a.ctx)
+	slog.Info("custom css updated")
+}
+
+func (a *App) GetSpotXSettings() api.SpotXSettings {
+	settings := api.SpotXSettings{
+		AdBlock:      true,
+		SectionBlock: true,
+		PremiumSpoof: true,
+		Experiments:  true,
+		LyricsTheme:  modules.DefaultTheme,
+		TrackHistory: true,
+	}
+	if m := a.injector.GetModule("adblock"); m != nil {
+		settings.AdBlock = m.Enabled()
+	}
+	if m := a.injector.GetModule("sectionblock"); m != nil {
+		settings.SectionBlock = m.Enabled()
+	}
+	if m := a.injector.GetModule("premium_spoof"); m != nil {
+		settings.PremiumSpoof = m.Enabled()
+	}
+	if m := a.injector.GetModule("experiments"); m != nil {
+		settings.Experiments = m.Enabled()
+	}
+	settings.LyricsTheme = "custom"
+	if m := a.injector.GetModule("history"); m != nil {
+		settings.TrackHistory = m.Enabled()
+	}
+	return settings
+}
+
 func (a *App) OnBeforeClose(_ context.Context) bool {
 	if a.runInBackground {
 		slog.Info("window close requested, hiding to system tray")
@@ -108,35 +142,27 @@ func (a *App) OnBeforeClose(_ context.Context) bool {
 		); err != nil {
 			slog.Warn("failed to show native notification", "error", err)
 		}
-		return true // prevent actual window destruction
+		return true
 	}
 
 	slog.Info("window close requested, quitting application")
-	return false // allow Wails to close the app
+	return false
 }
 
-// ---------------------------------------------------------------------------
-// Window controls (bound to frontend + API)
-// ---------------------------------------------------------------------------
-
-// Minimize minimises the main window.
 func (a *App) Minimize() {
 	runtime.WindowMinimise(a.ctx)
 }
 
-// Maximize maximises the main window.
 func (a *App) Maximize() {
 	runtime.WindowMaximise(a.ctx)
 	a.maximized = true
 }
 
-// UnMaximize restores the main window from maximised state.
 func (a *App) UnMaximize() {
 	runtime.WindowUnmaximise(a.ctx)
 	a.maximized = false
 }
 
-// Close closes the main window. Respects background mode.
 func (a *App) Close() {
 	if a.runInBackground {
 		runtime.Hide(a.ctx)
@@ -147,7 +173,6 @@ func (a *App) Close() {
 	}
 }
 
-// ToggleWindowVisibility shows or hides the main window.
 func (a *App) ToggleWindowVisibility() {
 	if a.ctx == nil {
 		return
@@ -163,7 +188,10 @@ func (a *App) ToggleWindowVisibility() {
 	}
 }
 
-// Greet returns a greeting for the given name. Exposed to the frontend.
 func (a *App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
+}
+
+func (a *App) OpenDevTools() {
+	runtime.BrowserOpenURL(a.ctx, "http://localhost:34115")
 }

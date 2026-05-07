@@ -10,6 +10,10 @@ export function GetSettings() {
   return window['go']['app']['App']['GetSettings']();
 }
 
+export function GetSpotXSettings() {
+  return window['go']['app']['App']['GetSpotXSettings']();
+}
+
 export function Greet(arg1) {
   return window['go']['app']['App']['Greet'](arg1);
 }
@@ -26,12 +30,24 @@ export function Minimize() {
   return window['go']['app']['App']['Minimize']();
 }
 
+export function OpenDevTools() {
+  return window['go']['app']['App']['OpenDevTools']();
+}
+
 export function SetBackgroundMode(arg1) {
   return window['go']['app']['App']['SetBackgroundMode'](arg1);
 }
 
 export function SetLanguage(arg1) {
   return window['go']['app']['App']['SetLanguage'](arg1);
+}
+
+export function SetLyricsTheme(arg1) {
+  return window['go']['app']['App']['SetLyricsTheme'](arg1);
+}
+
+export function SetModuleEnabled(arg1, arg2) {
+  return window['go']['app']['App']['SetModuleEnabled'](arg1, arg2);
 }
 
 export function ToggleWindowVisibility() {

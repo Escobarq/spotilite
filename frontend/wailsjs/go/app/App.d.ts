@@ -6,6 +6,8 @@ export function Close():Promise<void>;
 
 export function GetSettings():Promise<api.Settings>;
 
+export function GetSpotXSettings():Promise<api.SpotXSettings>;
+
 export function Greet(arg1:string):Promise<string>;
 
 export function IsBackgroundMode():Promise<boolean>;
@@ -14,9 +16,15 @@ export function Maximize():Promise<void>;
 
 export function Minimize():Promise<void>;
 
+export function OpenDevTools():Promise<void>;
+
 export function SetBackgroundMode(arg1:boolean):Promise<void>;
 
 export function SetLanguage(arg1:string):Promise<void>;
+
+export function SetLyricsTheme(arg1:string):Promise<void>;
+
+export function SetModuleEnabled(arg1:string,arg2:boolean):Promise<void>;
 
 export function ToggleWindowVisibility():Promise<void>;
 

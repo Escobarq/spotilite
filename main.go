@@ -58,8 +58,8 @@ func main() {
 
 	err = wails.Run(&options.App{
 		Title:  translator.T("app.title"),
-		Width:  1024,
-		Height: 768,
+		Width:  960,
+		Height: 640,
 		Frameless: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,

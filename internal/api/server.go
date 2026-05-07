@@ -1,6 +1,3 @@
-// Package api provides a local HTTP server that exposes window controls and
-// settings endpoints. It allows the JavaScript injected into Spotify to
-// communicate with the Go backend via fetch requests.
 package api
 
 import (
@@ -11,10 +8,8 @@ import (
 	"time"
 )
 
-// DefaultPort is the local port for the API server.
 const DefaultPort = "8765"
 
-// Handler is the interface that App implements to handle API requests.
 type Handler interface {
 	Minimize()
 	Maximize()
@@ -23,35 +18,41 @@ type Handler interface {
 	SetLanguage(lang string)
 	SetBackgroundMode(enabled bool)
 	GetSettings() Settings
+	SetModuleEnabled(name string, enabled bool)
+	SetLyricsTheme(theme string)
+	GetSpotXSettings() SpotXSettings
 }
 
-// Settings holds the current app settings.
 type Settings struct {
-	Language       string `json:"language"`
-	BackgroundMode bool   `json:"backgroundMode"`
+	Language      string `json:"language"`
+	BackgroundMode bool  `json:"backgroundMode"`
 }
 
-// Server is the local HTTP API server.
+type SpotXSettings struct {
+	AdBlock      bool   `json:"adBlock"`
+	SectionBlock bool   `json:"sectionBlock"`
+	PremiumSpoof bool   `json:"premiumSpoof"`
+	Experiments  bool   `json:"experiments"`
+	LyricsTheme  string `json:"lyricsTheme"`
+	TrackHistory bool   `json:"trackHistory"`
+}
+
 type Server struct {
 	handler Handler
 	server  *http.Server
 }
 
-// NewServer creates a new API server. The handler can be set later via SetHandler.
 func NewServer(handler Handler) *Server {
 	return &Server{handler: handler}
 }
 
-// SetHandler sets the handler after App has been created.
 func (s *Server) SetHandler(handler Handler) {
 	s.handler = handler
 }
 
-// Start launches the API server in a background goroutine.
 func (s *Server) Start() {
 	mux := http.NewServeMux()
 
-	// CORS middleware to allow requests from any origin.
 	cors := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -72,6 +73,10 @@ func (s *Server) Start() {
 	mux.HandleFunc("/api/settings/lang", cors(s.handleSetLang))
 	mux.HandleFunc("/api/settings/background", cors(s.handleSetBackground))
 	mux.HandleFunc("/api/settings", cors(s.handleGetSettings))
+	mux.HandleFunc("/api/spotx/module", cors(s.handleSetModule))
+	mux.HandleFunc("/api/spotx/lyrics_theme", cors(s.handleSetLyricsTheme))
+	mux.HandleFunc("/api/spotx/custom_css", cors(s.handleSetCustomCSS))
+	mux.HandleFunc("/api/spotx/settings", cors(s.handleGetSpotXSettings))
 
 	s.server = &http.Server{
 		Addr:         ":" + DefaultPort,
@@ -88,7 +93,6 @@ func (s *Server) Start() {
 	}()
 }
 
-// Stop gracefully shuts down the API server.
 func (s *Server) Stop(ctx context.Context) error {
 	if s.server == nil {
 		return nil
@@ -97,28 +101,28 @@ func (s *Server) Stop(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
-func (s *Server) handleMinimize(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleMinimize(w http.ResponseWriter, _ *http.Request) {
 	if s.handler != nil {
 		s.handler.Minimize()
 	}
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Server) handleMaximize(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleMaximize(w http.ResponseWriter, _ *http.Request) {
 	if s.handler != nil {
 		s.handler.Maximize()
 	}
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Server) handleUnMaximize(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleUnMaximize(w http.ResponseWriter, _ *http.Request) {
 	if s.handler != nil {
 		s.handler.UnMaximize()
 	}
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Server) handleClose(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleClose(w http.ResponseWriter, _ *http.Request) {
 	if s.handler != nil {
 		s.handler.Close()
 	}
@@ -153,12 +157,68 @@ func (s *Server) handleSetBackground(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetSettings(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if s.handler != nil {
 		settings := s.handler.GetSettings()
 		json.NewEncoder(w).Encode(settings)
 	} else {
 		json.NewEncoder(w).Encode(Settings{Language: "es", BackgroundMode: true})
+	}
+}
+
+func (s *Server) handleSetModule(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Module  string `json:"module"`
+		Enabled bool   `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if s.handler != nil {
+		s.handler.SetModuleEnabled(req.Module, req.Enabled)
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleSetLyricsTheme(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Theme string `json:"theme"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if s.handler != nil {
+		s.handler.SetLyricsTheme(req.Theme)
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleSetCustomCSS(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		CSS string `json:"css"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if s.handler != nil {
+		s.handler.SetLyricsTheme(req.CSS)
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleGetSpotXSettings(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.handler != nil {
+		settings := s.handler.GetSpotXSettings()
+		json.NewEncoder(w).Encode(settings)
+	} else {
+		json.NewEncoder(w).Encode(SpotXSettings{
+			AdBlock: true, SectionBlock: true, PremiumSpoof: true,
+			Experiments: true, LyricsTheme: "neon", TrackHistory: true,
+		})
 	}
 }
