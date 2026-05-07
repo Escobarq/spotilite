@@ -28,11 +28,15 @@ var bar = document.getElementById('spotilite-title-bar');
 if (bar) return;
 bar = document.createElement('div');
 bar.id = 'spotilite-title-bar';
+bar.style.cssText = 'display:flex;align-items:center;';
 document.body.insertBefore(bar, document.body.firstChild);
 var left = document.createElement('div');
 left.className = 'spotilite-left';
 left.innerHTML = '<span class="spotilite-logo">S</span><span class="spotilite-title">Spotilite</span>';
 bar.appendChild(left);
+var center = document.createElement('div');
+center.className = 'spotilite-center';
+center.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;height:100%;--wails-draggable:drag;';
 var toggles = document.createElement('div');
 toggles.className = 'spotilite-toggles';
 function mkBtn(id, active, title, svg) {
@@ -55,7 +59,8 @@ toggles.appendChild(premBtn);
 toggles.appendChild(expBtn);
 toggles.appendChild(histBtn);
 toggles.appendChild(cssBtn);
-bar.appendChild(toggles);
+center.appendChild(toggles);
+bar.appendChild(center);
 var right = document.createElement('div');
 right.className = 'spotilite-right';
 var setCont = document.createElement('div');
@@ -146,9 +151,12 @@ function applyOffset() {
   if (main) main.style.paddingTop = barH + 'px';
   var topBar = document.querySelector('.main-topBar-container');
   if (topBar) topBar.style.display = 'none';
+  var resp = document.querySelector('[class*="response"]') || document.querySelector('[class*="mobile"]') || document.querySelector('[class*="touch"]');
+  if (resp) resp.style.paddingTop = barH + 'px';
 }
 applyOffset();
 setInterval(applyOffset, 3000);
+window.addEventListener('resize', function() { applyOffset(); });
 })();`
 
 const titleBarCSS = `
@@ -164,6 +172,20 @@ html, body { margin: 0 !important; padding: 0 !important; overflow: hidden !impo
   display: flex; align-items: center; gap: 8px;
   padding-left: 12px; height: 100%;
   --wails-draggable: drag;
+  flex-shrink: 0;
+}
+#spotilite-title-bar .spotilite-center {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  height: 100%; --wails-draggable: drag; cursor: grab;
+}
+#spotilite-title-bar .spotilite-center:active { cursor: grabbing; }
+@media screen and (max-width: 768px) {
+  #spotilite-title-bar .spotilite-toggles { gap: 0; }
+  #spotilite-title-bar .spotilite-icon-btn { padding: 0 4px; }
+  #spotilite-title-bar .spotilite-title { display: none; }
+}
+#spotilite-title-bar .spotilite-toggles {
+  display: flex; align-items: center; height: 100%; gap: 2px;
 }
 #spotilite-title-bar .spotilite-logo {
   width: 18px; height: 18px; background: #1DB954;
@@ -182,6 +204,7 @@ html, body { margin: 0 !important; padding: 0 !important; overflow: hidden !impo
   color: #666; font-size: 13px; cursor: pointer;
   transition: color 0.15s, background 0.15s;
   display: flex; align-items: center; justify-content: center;
+  pointer-events: auto;
 }
 #spotilite-title-bar .spotilite-icon-btn:hover { color: #fff; background: rgba(255,255,255,0.08); }
 #spotilite-title-bar .spotilite-icon-btn.active { color: #1DB954; }
@@ -193,20 +216,21 @@ html, body { margin: 0 !important; padding: 0 !important; overflow: hidden !impo
 }
 #spotilite-title-bar .spotilite-win-btns {
   display: flex; height: 100%;
+  pointer-events: auto;
 }
 #spotilite-title-bar .spotilite-win-btn {
   width: 46px; height: 100%; background: transparent; border: none;
   color: #b3b3b3; font-size: 14px; cursor: pointer;
   transition: background 0.15s, color 0.15s;
+  pointer-events: auto;
 }
-#spotilite-title-bar .spotilite-win-btn:hover { background: #282828; color: #fff; }
-#spotilite-title-bar .spotilite-close:hover { background: #e81123; color: #fff; }
 #spotilite-title-bar .spotilite-dropdown {
   position: absolute; top: 100%; right: 0;
   background: #282828; border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);
   z-index: 2147483647; width: 260px; padding: 6px 0;
   display: none; max-height: 80vh; overflow-y: auto;
+  pointer-events: auto;
 }
 #spotilite-title-bar .spotilite-dropdown.active { display: block; }
 #spotilite-title-bar .spotilite-dropdown::-webkit-scrollbar { width: 6px; }
