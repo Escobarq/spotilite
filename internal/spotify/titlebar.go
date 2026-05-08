@@ -11,12 +11,10 @@ var sectionBlock = localStorage.getItem('spotilite.sectionblock') !== 'false';
 var premiumSpoof = localStorage.getItem('spotilite.premium_spoof') !== 'false';
 var experiments = localStorage.getItem('spotilite.experiments') !== 'false';
 var historyOn = localStorage.getItem('spotilite.history') !== 'false';
-var customCSS = localStorage.getItem('spotilite.custom_css') || '';
-var customCSSEnabled = localStorage.getItem('spotilite.custom_css_enabled') !== 'false';
 var bgMode = localStorage.getItem('spotilite.bg') !== 'false';
 var txt = lang === 'en'
-  ? {ad:'Ad Blocker',sec:'Block Sections',prem:'Hide Premium',exp:'Experiments',hist:'History',css:'Custom CSS',set:'Settings',ph:'Paste your CSS here...',apply:'Apply',clear:'Clear',lang:'Language',es:'Spanish',en:'English',app:'App',bg:'Background',min:'Minimize',max:'Maximize',rest:'Restore',close:'Close'}
-  : {ad:'Bloquear Anuncios',sec:'Bloquear Secciones',prem:'Ocultar Premium',exp:'Experimentos',hist:'Historial',css:'CSS Personalizado',set:'Ajustes',ph:'Pega tu CSS aqui...',apply:'Aplicar',clear:'Limpiar',lang:'Idioma',es:'Espanol',en:'English',app:'App',bg:'Segundo Plano',min:'Minimizar',max:'Maximizar',rest:'Restaurar',close:'Cerrar'};
+  ? {ad:'Ad Blocker',sec:'Block Sections',prem:'Hide Premium',exp:'Experiments',hist:'History',set:'Settings',lang:'Language',es:'Spanish',en:'English',app:'App',bg:'Background',min:'Minimize',max:'Maximize',rest:'Restore',close:'Close'}
+  : {ad:'Bloquear Anuncios',sec:'Bloquear Secciones',prem:'Ocultar Premium',exp:'Experimentos',hist:'Historial',set:'Ajustes',lang:'Idioma',es:'Espanol',en:'English',app:'App',bg:'Segundo Plano',min:'Minimizar',max:'Maximizar',rest:'Restaurar',close:'Cerrar'};
 function apiPost(path, data) {
   window.__origFetch(API + path, {
     method: 'POST',
@@ -52,13 +50,11 @@ var secBtn = mkBtn('spotilite-toggle-sectionblock', sectionBlock, txt.sec, '<svg
 var premBtn = mkBtn('spotilite-toggle-premium', premiumSpoof, txt.prem, '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>');
 var expBtn = mkBtn('spotilite-toggle-experiments', experiments, txt.exp, '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>');
 var histBtn = mkBtn('spotilite-toggle-history', historyOn, txt.hist, '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7a7 7 0 01-5.19-2.32l-1.41 1.41A9 9 0 0013 21a9 9 0 000-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>');
-var cssBtn = mkBtn('spotilite-toggle-css', customCSSEnabled, txt.css, '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>');
 toggles.appendChild(adBtn);
 toggles.appendChild(secBtn);
 toggles.appendChild(premBtn);
 toggles.appendChild(expBtn);
 toggles.appendChild(histBtn);
-toggles.appendChild(cssBtn);
 center.appendChild(toggles);
 bar.appendChild(center);
 var right = document.createElement('div');
@@ -73,15 +69,6 @@ setCont.appendChild(setBtn);
 var dd = document.createElement('div');
 dd.className = 'spotilite-dropdown';
 dd.innerHTML =
-  '<div class="spotilite-dropdown-header">' + txt.css + '</div>' +
-  '<div class="spotilite-css-editor">' +
-    '<textarea id="spotilite-css-ta" placeholder="' + txt.ph + '"></textarea>' +
-    '<div class="spotilite-css-actions">' +
-      '<button id="spotilite-css-apply" class="spotilite-css-btn spotilite-css-apply">' + txt.apply + '</button>' +
-      '<button id="spotilite-css-clear" class="spotilite-css-btn spotilite-css-clear">' + txt.clear + '</button>' +
-    '</div>' +
-  '</div>' +
-  '<div class="spotilite-dropdown-sep"></div>' +
   '<div class="spotilite-dropdown-header">' + txt.lang + '</div>' +
   '<button class="spotilite-dropdown-item" data-lang="es"><span class="spotilite-lang-label">ES</span><span>' + txt.es + '</span><span class="spotilite-radio' + (lang==='es'?' on':'') + '"></span></button>' +
   '<button class="spotilite-dropdown-item" data-lang="en"><span class="spotilite-lang-label">EN</span><span>' + txt.en + '</span><span class="spotilite-radio' + (lang==='en'?' on':'') + '"></span></button>' +
@@ -98,8 +85,6 @@ bar.appendChild(right);
 setBtn.onclick = function(e) {
   e.stopPropagation();
   dd.classList.toggle('active');
-  var ta = document.getElementById('spotilite-css-ta');
-  if (ta) ta.value = customCSS;
 };
 document.addEventListener('click', function(e) {
   if (!setCont.contains(e.target)) dd.classList.remove('active');
@@ -113,33 +98,17 @@ dd.querySelector('[data-lang="en"]').onclick = function() {
 document.getElementById('spotilite-bg-toggle').onclick = function() {
   bgMode=!bgMode; localStorage.setItem('spotilite.bg',bgMode); apiPost('/api/settings/background',{enabled:bgMode}); upd();
 };
-document.getElementById('spotilite-css-apply').onclick = function(e) {
-  e.stopPropagation();
-  var ta = document.getElementById('spotilite-css-ta');
-  customCSS = ta.value;
-  localStorage.setItem('spotilite.custom_css', customCSS);
-  apiPost('/api/spotx/custom_css', {css: customCSS});
-};
-document.getElementById('spotilite-css-clear').onclick = function(e) {
-  e.stopPropagation();
-  var ta = document.getElementById('spotilite-css-ta');
-  ta.value = ''; customCSS = '';
-  localStorage.setItem('spotilite.custom_css', '');
-  apiPost('/api/spotx/custom_css', {css: ''});
-};
 adBtn.onclick = function() { adBlock=!adBlock; localStorage.setItem('spotilite.adblock',adBlock); apiPost('/api/spotx/module',{module:'adblock',enabled:adBlock}); upd(); };
 secBtn.onclick = function() { sectionBlock=!sectionBlock; localStorage.setItem('spotilite.sectionblock',sectionBlock); apiPost('/api/spotx/module',{module:'sectionblock',enabled:sectionBlock}); upd(); };
 premBtn.onclick = function() { premiumSpoof=!premiumSpoof; localStorage.setItem('spotilite.premium_spoof',premiumSpoof); apiPost('/api/spotx/module',{module:'premium_spoof',enabled:premiumSpoof}); upd(); };
 expBtn.onclick = function() { experiments=!experiments; localStorage.setItem('spotilite.experiments',experiments); apiPost('/api/spotx/module',{module:'experiments',enabled:experiments}); upd(); };
 histBtn.onclick = function() { historyOn=!historyOn; localStorage.setItem('spotilite.history',historyOn); apiPost('/api/spotx/module',{module:'history',enabled:historyOn}); upd(); };
-cssBtn.onclick = function() { customCSSEnabled=!customCSSEnabled; localStorage.setItem('spotilite.custom_css_enabled',customCSSEnabled); apiPost('/api/spotx/module',{module:'custom_css',enabled:customCSSEnabled}); upd(); };
 function upd() {
   adBtn.className='spotilite-icon-btn'+(adBlock?' active':'');
   secBtn.className='spotilite-icon-btn'+(sectionBlock?' active':'');
   premBtn.className='spotilite-icon-btn'+(premiumSpoof?' active':'');
   expBtn.className='spotilite-icon-btn'+(experiments?' active':'');
   histBtn.className='spotilite-icon-btn'+(historyOn?' active':'');
-  cssBtn.className='spotilite-icon-btn'+(customCSSEnabled?' active':'');
 }
 upd();
 document.getElementById('spotilite-minimize').onclick = function() { apiPost('/api/window/minimize', {}); };
@@ -155,7 +124,7 @@ function applyOffset() {
   if (resp) resp.style.paddingTop = barH + 'px';
 }
 applyOffset();
-setInterval(applyOffset, 3000);
+setInterval(applyOffset, 2000);
 window.addEventListener('resize', function() { applyOffset(); });
 })();`
 
@@ -228,7 +197,7 @@ html, body { margin: 0 !important; padding: 0 !important; overflow: hidden !impo
   position: absolute; top: 100%; right: 0;
   background: #282828; border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-  z-index: 2147483647; width: 260px; padding: 6px 0;
+  z-index: 2147483647; width: 200px; padding: 6px 0;
   display: none; max-height: 80vh; overflow-y: auto;
   pointer-events: auto;
 }
@@ -274,21 +243,4 @@ html, body { margin: 0 !important; padding: 0 !important; overflow: hidden !impo
   content: ''; position: absolute; top: 2px; left: 2px;
   width: 4px; height: 4px; border-radius: 50%; background: #1DB954;
 }
-#spotilite-title-bar .spotilite-css-editor { padding: 6px 12px; }
-#spotilite-title-bar .spotilite-css-editor textarea {
-  width: 100%; min-height: 100px; max-height: 250px; resize: vertical;
-  background: #1a1a1a; color: #e0e0e0; border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 4px; padding: 8px; font-family: 'Consolas','Monaco',monospace;
-  font-size: 11px; line-height: 1.4; outline: none;
-}
-#spotilite-title-bar .spotilite-css-editor textarea:focus { border-color: #1DB954; }
-#spotilite-title-bar .spotilite-css-actions { display: flex; gap: 6px; margin-top: 6px; }
-#spotilite-title-bar .spotilite-css-btn {
-  flex: 1; padding: 5px 10px; border: none; border-radius: 4px;
-  font-size: 11px; font-weight: 600; cursor: pointer; transition: background 0.15s;
-}
-#spotilite-title-bar .spotilite-css-apply { background: #1DB954; color: #000; }
-#spotilite-title-bar .spotilite-css-apply:hover { background: #1ed760; }
-#spotilite-title-bar .spotilite-css-clear { background: #444; color: #ccc; }
-#spotilite-title-bar .spotilite-css-clear:hover { background: #555; color: #fff; }
 `

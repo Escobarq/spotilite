@@ -97,11 +97,8 @@ func (a *App) SetModuleEnabled(name string, enabled bool) {
 	slog.Info("module toggled", "name", name, "enabled", enabled)
 }
 
-func (a *App) SetLyricsTheme(css string) {
-	localStorage := `localStorage.setItem('spotilite.custom_css', ` + "`" + css + "`" + `);`
-	runtime.WindowExecJS(a.ctx, localStorage)
-	a.injector.UpdateCustomCSS(a.ctx)
-	slog.Info("custom css updated")
+func (a *App) SetLyricsTheme(theme string) {
+	slog.Info("lyrics theme set", "theme", theme)
 }
 
 func (a *App) GetSpotXSettings() api.SpotXSettings {

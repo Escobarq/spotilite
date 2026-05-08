@@ -37,7 +37,6 @@ func DefaultModules() []modules.Module {
 		modules.NewPremiumSpoofModule(true),
 		modules.NewExperimentModule(true),
 		modules.NewHistoryModule(true),
-		modules.NewCustomCSSModule(true),
 	}
 }
 
@@ -198,22 +197,6 @@ func jsString(s string) string {
 	}
 	b.WriteRune('"')
 	return b.String()
-}
-
-func (i *Injector) UpdateCustomCSS(ctx context.Context) {
-	js := `(function() {
-	var css = localStorage.getItem('spotilite.custom_css');
-	if (!css) { document.getElementById('spotilite-custom-css')?.remove(); return; }
-	var id = 'spotilite-custom-css';
-	var style = document.getElementById(id);
-	if (!style) {
-		style = document.createElement('style');
-		style.id = id;
-		document.head.appendChild(style);
-	}
-	style.textContent = css;
-})();`
-	runtime.WindowExecJS(ctx, js)
 }
 
 var baseSelectors = []string{

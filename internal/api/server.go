@@ -75,7 +75,6 @@ func (s *Server) Start() {
 	mux.HandleFunc("/api/settings", cors(s.handleGetSettings))
 	mux.HandleFunc("/api/spotx/module", cors(s.handleSetModule))
 	mux.HandleFunc("/api/spotx/lyrics_theme", cors(s.handleSetLyricsTheme))
-	mux.HandleFunc("/api/spotx/custom_css", cors(s.handleSetCustomCSS))
 	mux.HandleFunc("/api/spotx/settings", cors(s.handleGetSpotXSettings))
 
 	s.server = &http.Server{
@@ -192,20 +191,6 @@ func (s *Server) handleSetLyricsTheme(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.handler != nil {
 		s.handler.SetLyricsTheme(req.Theme)
-	}
-	w.WriteHeader(http.StatusOK)
-}
-
-func (s *Server) handleSetCustomCSS(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		CSS string `json:"css"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if s.handler != nil {
-		s.handler.SetLyricsTheme(req.CSS)
 	}
 	w.WriteHeader(http.StatusOK)
 }
