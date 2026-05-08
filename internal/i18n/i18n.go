@@ -95,26 +95,6 @@ func (t *Translator) loadDefaults() {
 	}
 
 	t.data[LangSpanish] = map[string]string{
-		"app.title": "Spotilite",
-		"tray.show": "Mostrar Ventana",
-		"tray.hide": "Ocultar Ventana",
-		"tray.quit": "Salir",
-		"tray.runInBackground": "Ejecutar en segundo plano",
-		"tray.language": "Idioma",
-		"tray.lang.en": "Inglés",
-		"tray.lang.es": "Español",
-		"notif.minimizedToTray": "Spotilite se está ejecutando en segundo plano",
-		"notif.minimizedBody": "Haz clic en el icono de la bandeja para volver a mostrar la ventana.",
-		"dialog.confirmQuit": "¿Estás seguro de que quieres salir de Spotilite?",
-		"spotx.adblock": "Bloquear anuncios",
-		"spotx.sections": "Bloquear secciones",
-		"spotx.premium": "Ocultar Premium",
-		"spotx.experiments": "Desactivar experiments",
-		"spotx.lyrics_theme": "Tema de letras",
-		"spotx.history": "Historial de tracks",
-	}
-
-	t.data[LangSpanish] = map[string]string{
 		"app.title":                "Spotilite",
 		"tray.show":                "Mostrar Ventana",
 		"tray.hide":                "Ocultar Ventana",
@@ -122,9 +102,15 @@ func (t *Translator) loadDefaults() {
 		"tray.runInBackground":     "Ejecutar en segundo plano",
 		"tray.language":            "Idioma",
 		"tray.lang.en":             "Inglés",
-		"tray.lang.es":             "Español",
+		"tray.lang.es":            "Español",
 		"notif.minimizedToTray":    "Spotilite se está ejecutando en segundo plano",
 		"notif.minimizedBody":      "Haz clic en el icono de la bandeja para volver a mostrar la ventana.",
 		"dialog.confirmQuit":       "¿Estás seguro de que quieres salir de Spotilite?",
+		"spotx.adblock":            "Bloquear anuncios",
+		"spotx.sections":           "Bloquear secciones",
+		"spotx.premium":            "Ocultar Premium",
+		"spotx.experiments":        "Desactivar experiments",
+		"spotx.lyrics_theme":       "Tema de letras",
+		"spotx.history":            "Historial de tracks",
 	}
 }

@@ -25,9 +25,11 @@ type App struct {
 	runInBackground bool
 	windowVisible bool
 	maximized bool
+	hasNotifiedBackground bool
+	iconPath string
 }
 
-func NewApp(i18n *i18n.Translator, tray *apptray.Manager, apiServer *api.Server, runInBackground bool) *App {
+func NewApp(i18n *i18n.Translator, tray *apptray.Manager, apiServer *api.Server, runInBackground bool, iconPath string) *App {
 	injector := spotify.NewInjector()
 	return &App{
 		i18n: i18n,
@@ -36,6 +38,7 @@ func NewApp(i18n *i18n.Translator, tray *apptray.Manager, apiServer *api.Server,
 		api: apiServer,
 		runInBackground: runInBackground,
 		windowVisible: true,
+		iconPath: iconPath,
 	}
 }
 
@@ -130,7 +133,7 @@ func (a *App) GetSpotXSettings() api.SpotXSettings {
 }
 
 func (a *App) OnBeforeClose(_ context.Context) bool {
-	if a.runInBackground {
+	if a.runInBackground && !a.hasNotifiedBackground {
 		slog.Info("window close requested, hiding to system tray")
 		runtime.Hide(a.ctx)
 		a.windowVisible = false
@@ -138,10 +141,11 @@ func (a *App) OnBeforeClose(_ context.Context) bool {
 		if err := beeep.Notify(
 			a.i18n.T("app.title"),
 			a.i18n.T("notif.minimizedToTray"),
-			"",
+			a.iconPath,
 		); err != nil {
 			slog.Warn("failed to show native notification", "error", err)
 		}
+		a.hasNotifiedBackground = true
 		return true
 	}
 
@@ -164,10 +168,11 @@ func (a *App) UnMaximize() {
 }
 
 func (a *App) Close() {
-	if a.runInBackground {
+	if a.runInBackground && !a.hasNotifiedBackground {
 		runtime.Hide(a.ctx)
 		a.windowVisible = false
-		beeep.Notify(a.i18n.T("app.title"), a.i18n.T("notif.minimizedToTray"), "")
+		beeep.Notify(a.i18n.T("app.title"), a.i18n.T("notif.minimizedToTray"), a.iconPath)
+		a.hasNotifiedBackground = true
 	} else {
 		runtime.Quit(a.ctx)
 	}

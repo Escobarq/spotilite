@@ -31,9 +31,20 @@ func main() {
 	if err != nil {
 		exe = "."
 	}
+
 	iconPath := filepath.Join(filepath.Dir(exe), "build", "windows", "icon.ico")
 	if _, err := os.Stat(iconPath); os.IsNotExist(err) {
 		iconPath = filepath.Join(".", "build", "windows", "icon.ico")
+	}
+
+	trayIconPath := filepath.Join(filepath.Dir(exe), "build", "windows", "icon_tray.ico")
+	if _, err := os.Stat(trayIconPath); os.IsNotExist(err) {
+		trayIconPath = filepath.Join(".", "build", "windows", "icon_tray.ico")
+	}
+
+	notificationIconPath := filepath.Join(filepath.Dir(exe), "build", "windows", "icon_notification.png")
+	if _, err := os.Stat(notificationIconPath); os.IsNotExist(err) {
+		notificationIconPath = iconPath
 	}
 
 	var application *app.App
@@ -42,7 +53,7 @@ func main() {
 
 	trayManager := apptray.NewManager(
 		translator,
-		iconPath,
+		trayIconPath,
 		func() {
 			if application != nil {
 				application.ToggleWindowVisibility()
@@ -53,7 +64,7 @@ func main() {
 		},
 	)
 
-	application = app.NewApp(translator, trayManager, apiServer, runInBackground)
+	application = app.NewApp(translator, trayManager, apiServer, runInBackground, notificationIconPath)
 	apiServer.SetHandler(application)
 
 	err = wails.Run(&options.App{
