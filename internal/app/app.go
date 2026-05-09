@@ -131,19 +131,21 @@ func (a *App) GetSpotXSettings() api.SpotXSettings {
 }
 
 func (a *App) OnBeforeClose(_ context.Context) bool {
-	if a.runInBackground && !a.hasNotifiedBackground {
+	if a.runInBackground {
 		slog.Info("window close requested, hiding to system tray")
 		runtime.Hide(a.ctx)
 		a.windowVisible = false
 
-		if err := beeep.Notify(
-			a.i18n.T("app.title"),
-			a.i18n.T("notif.minimizedToTray"),
-			a.iconPath,
-		); err != nil {
-			slog.Warn("failed to show native notification", "error", err)
+		if !a.hasNotifiedBackground {
+			if err := beeep.Notify(
+				a.i18n.T("app.title"),
+				a.i18n.T("notif.minimizedToTray"),
+				a.iconPath,
+			); err != nil {
+				slog.Warn("failed to show native notification", "error", err)
+			}
+			a.hasNotifiedBackground = true
 		}
-		a.hasNotifiedBackground = true
 
 		// Liberar memoria de Go cuando pasa a segundo plano
 		go debug.FreeOSMemory()
@@ -174,7 +176,7 @@ func (a *App) ForceQuit() {
 }
 
 func (a *App) Close() {
-	if a.runInBackground && !a.hasNotifiedBackground {
+	if a.runInBackground {
 		runtime.Hide(a.ctx)
 		a.windowVisible = false
 		beeep.Notify(a.i18n.T("app.title"), a.i18n.T("notif.minimizedToTray"), a.iconPath)
