@@ -13,7 +13,7 @@ import (
 	"spotilite/internal/i18n"
 )
 
-//go:embed ../../build/windows/icon_tray.ico
+//go:embed icon_tray.ico
 var trayIconData []byte
 
 type menuItems struct {
