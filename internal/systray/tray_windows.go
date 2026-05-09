@@ -5,13 +5,16 @@
 package systray
 
 import (
+	_ "embed"
 	"log/slog"
-	"os"
 
 	"github.com/getlantern/systray"
 
 	"spotilite/internal/i18n"
 )
+
+//go:embed ../../build/windows/icon_tray.ico
+var trayIconData []byte
 
 type menuItems struct {
 	show *systray.MenuItem
@@ -19,11 +22,10 @@ type menuItems struct {
 }
 
 type Manager struct {
-	i18n     *i18n.Translator
-	iconPath string
-	onShow   func()
-	onQuit   func()
-	items    menuItems
+	i18n   *i18n.Translator
+	onShow func()
+	onQuit func()
+	items  menuItems
 }
 
 func NewManager(
@@ -32,10 +34,9 @@ func NewManager(
 	onShow, onQuit func(),
 ) *Manager {
 	return &Manager{
-		i18n:     i18n,
-		iconPath: iconPath,
-		onShow:   onShow,
-		onQuit:   onQuit,
+		i18n:   i18n,
+		onShow: onShow,
+		onQuit: onQuit,
 	}
 }
 
@@ -52,12 +53,7 @@ func (m *Manager) Refresh() {
 }
 
 func (m *Manager) onReady() {
-	iconBytes, err := os.ReadFile(m.iconPath)
-	if err != nil {
-		slog.Warn("failed to read tray icon", "path", m.iconPath, "error", err)
-	} else {
-		systray.SetIcon(iconBytes)
-	}
+	systray.SetIcon(trayIconData)
 	systray.SetTooltip(m.i18n.T("app.title"))
 
 	m.items.show = systray.AddMenuItem(m.i18n.T("tray.show"), "Show window")

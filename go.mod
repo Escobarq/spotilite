@@ -1,6 +1,6 @@
 module spotilite
 
-go 1.23.0
+go 1.19
 
 require (
 	github.com/gen2brain/beeep v0.11.2
