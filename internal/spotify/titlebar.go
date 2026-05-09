@@ -34,7 +34,7 @@ left.innerHTML = '<span class="spotilite-logo">S</span><span class="spotilite-ti
 bar.appendChild(left);
 var center = document.createElement('div');
 center.className = 'spotilite-center';
-center.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;height:100%;--wails-draggable:drag;';
+center.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;height:100%;--wails-draggable:drag;-webkit-app-region:drag;';
 var toggles = document.createElement('div');
 toggles.className = 'spotilite-toggles';
 function mkBtn(id, active, title, svg) {
@@ -134,18 +134,18 @@ html, body { margin: 0 !important; padding: 0 !important; overflow: hidden !impo
   position: fixed; top: 0; left: 0; width: 100%; height: 28px;
   z-index: 2147483647; background: #191414;
   display: flex; align-items: center; justify-content: space-between;
-  --wails-draggable: drag;
+  --wails-draggable: drag; -webkit-app-region: drag;
   user-select: none;
 }
 #spotilite-title-bar .spotilite-left {
   display: flex; align-items: center; gap: 8px;
   padding-left: 12px; height: 100%;
-  --wails-draggable: drag;
+  --wails-draggable: drag; -webkit-app-region: drag;
   flex-shrink: 0;
 }
 #spotilite-title-bar .spotilite-center {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  height: 100%; --wails-draggable: drag; cursor: grab;
+  height: 100%; --wails-draggable: drag; -webkit-app-region: drag; cursor: grab;
 }
 #spotilite-title-bar .spotilite-center:active { cursor: grabbing; }
 @media screen and (max-width: 768px) {

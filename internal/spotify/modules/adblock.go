@@ -67,16 +67,31 @@ iframe[src*="googlesyndication"],
 	top: -9999px !important;
 }
 
-.main-nowPlayingBar-NowPlayingBar > div[class*="ad"],
 .main-nowPlayingBar-NowPlayingBar [data-testid="now-playing-bar-ad"],
-.main-nowPlayingBar-NowPlayingBar [class*="Ad"],
-.main-nowPlayingBar-NowPlayingBar [class*="ad"] {
+.main-nowPlayingBar-NowPlayingBar [class*="Commercial"],
+.main-nowPlayingBar-NowPlayingBar [class*="AdBreak"],
+.main-nowPlayingBar-NowPlayingBar [data-testid="ad-type-banner"] {
 	display: none !important;
 }
 
 *|*:not(html):not(body) > [class*="ad-break"]:not([class*="adblock"]),
 *|*:not(html):not(body) > [class*="AdBreak"]:not([class*="adblock"]) {
 	display: none !important;
+}
+
+/* PROTECT PLAYER INFO - DO NOT HIDE THESE */
+.main-nowPlayingBar-nowPlayingBar [data-testid="track-info"],
+.main-nowPlayingBar-nowPlayingBar .track-info,
+.main-nowPlayingBar-nowPlayingBar [class*="TrackInfo"],
+.main-nowPlayingBar-nowPlayingBar [data-testid="context-menu"],
+.main-nowPlayingBar-nowPlayingBar [class*="PlaybackControl"],
+.main-nowPlayingBar-nowPlayingBar [data-testid="control-button"],
+.main-nowPlayingBar-nowPlayingBar [class*="NowPlayingBar"] {
+	display: inherit !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+	pointer-events: auto !important;
+	position: static !important;
 }
 `
 
@@ -85,10 +100,16 @@ const adblockJS = `
 if (window.__spotiliteAdblockInstalled) return;
 window.__spotiliteAdblockInstalled = true;
 window.__spotiliteIsAdPlaying = false;
+window.__spotiliteAdConfirmCount = 0;
+window.__spotiliteLastCheck = 0;
+window.__spotiliteIdleTime = 0;
 
 var LOCAL_API = 'localhost:8765';
-var AD_CONFIRM_THRESHOLD = 3;
-var adConfirmCount = 0;
+var AD_CONFIRM_THRESHOLD = 2;
+var CHECK_INTERVAL_BASE = 1000;
+var CHECK_INTERVAL_IDLE = 2000;
+var SKIP_COOLDOWN_MAX = 10;
+var MAX_SELECTORS_PER_CHECK = 15;
 
 var AD_URL_PATTERNS = [
 	'ad-handler.spotify.com',
@@ -119,16 +140,13 @@ var AD_URL_PATTERNS = [
 	'openx.net',
 	'casalemedia.com',
 	'contextweb.com',
-	'rubicon',
-	'criteo',
-	'adtech',
-	'adnxs',
-	'adsrvr',
+	'audio-ads.spotify.com',
+	'ads-audio.spotify.com',
+	'adserver',
 	'app-measurement',
 	'analytics',
 	'sp-logger',
 	'adlog',
-	'adobedtm',
 	'tracking',
 	'metrics',
 	'telemetry'
@@ -139,7 +157,6 @@ var AD_SELECTORS = [
 	'[data-testid="billboard-ad"]',
 	'[data-testid="leaderboard-ad"]',
 	'[data-testid="sponsorship-ad"]',
-	'[data-testid="sponsored-playlist"]',
 	'[data-testid="hpto-ad"]',
 	'[data-testid="ad-card"]',
 	'[data-testid="ad-slot"]',
@@ -147,25 +164,32 @@ var AD_SELECTORS = [
 	'[data-testid="inactive-ad"]',
 	'[class*="BillboardAd"]',
 	'[class*="LeaderboardAd"]',
-	'[class*="SponsoredPlaylist"]',
-	'[class*="AdCard"]',
-	'[class*="AdContainer"]',
-	'[class*="ad-card"]',
-	'[class*="ad-container"]',
-	'[class*="sponsor-card"]',
 	'[class*="ad-break"]',
 	'[class*="AdBreak"]',
-	'[class*="ad-slot"]',
-	'[class*="AdSlot"]',
-	'[class*="advertisement"]',
 	'[aria-label="Advertisement"]',
 	'[aria-label="Publicidad"]',
-	'iframe[src*="doubleclick"]',
-	'iframe[src*="moatads"]',
-	'iframe[src*="googleads"]',
-	'iframe[src*="ads"]',
-	'iframe[src*="adsrvr"]',
-	'iframe[src*="adform"]'
+	'[class*="Commercial"]'
+];
+
+var AD_AUDIO_INDICATORS = [
+	'[data-testid="ad-type-banner"]',
+	'[data-testid="now-playing-bar-ad"]',
+	'[class*="Commercial"]',
+	'[class*="AdBreak"]',
+	'[aria-label*="Advertisement"]',
+	'[aria-label*="Publicidad"]',
+	'[data-testid="ad-cta"]',
+	'[data-testid="ad-message"]'
+];
+
+var PROTECTED_SELECTORS = [
+	'[data-testid="track-info"]',
+	'.track-info',
+	'[class*="TrackInfo"]',
+	'[data-testid="context-menu"]',
+	'[class*="PlaybackControl"]',
+	'[data-testid="control-button"]',
+	'[class*="NowPlayingBar"]'
 ];
 
 function isAdUrl(url) {
@@ -194,6 +218,7 @@ window.fetch = function() {
 	var url = args[0];
 
 	if (isAdUrl(url)) {
+		console.log('[Spotilite AdBlock] Blocked ad request:', url);
 		return Promise.resolve(createEmptyResponse());
 	}
 
@@ -218,6 +243,7 @@ var _origXHRSend = XMLHttpRequest.prototype.send;
 XMLHttpRequest.prototype.open = function(method, url) {
 	if (isAdUrl(url)) {
 		this.__adBlocked = true;
+		console.log('[Spotilite AdBlock] Blocked XHR ad request:', url);
 		return;
 	}
 	return _origXHROpen.apply(this, arguments);
@@ -231,42 +257,112 @@ XMLHttpRequest.prototype.send = function(data) {
 	return _origXHRSend.apply(this, arguments);
 };
 
+var debounceTimer = null;
+function debounce(func, wait) {
+	return function() {
+		var context = this;
+		var args = arguments;
+		clearTimeout(debounceTimer);
+		debounceTimer = setTimeout(function() {
+			func.apply(context, args);
+		}, wait);
+	};
+}
+
 function hideAdElements() {
 	try {
+		var now = Date.now();
+		if (now - window.__spotiliteLastCheck < 500) return;
+		window.__spotiliteLastCheck = now;
+
 		var hidden = 0;
-		AD_SELECTORS.forEach(function(sel) {
+		var selectorsToCheck = AD_SELECTORS.slice(0, MAX_SELECTORS_PER_CHECK);
+		
+		for (var s = 0; s < selectorsToCheck.length; s++) {
 			try {
+				var sel = selectorsToCheck[s];
 				var els = document.querySelectorAll(sel);
-				els.forEach(function(el) {
+				for (var e = 0; e < els.length; e++) {
+					var el = els[e];
 					if (el.style.display !== 'none') {
-						el.style.setProperty('display', 'none', 'important');
-						el.style.setProperty('visibility', 'hidden', 'important');
-						el.style.setProperty('opacity', '0', 'important');
-						el.style.setProperty('pointer-events', 'none', 'important');
-						el.style.setProperty('height', '0', 'important');
-						el.style.setProperty('width', '0', 'important');
-						el.style.setProperty('position', 'absolute', 'important');
-						el.style.setProperty('left', '-9999px', 'important');
-						el.style.setProperty('top', '-9999px', 'important');
+						el.style.cssText = 'display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;height:0!important;width:0!important;overflow:hidden!important;position:absolute!important;left:-9999px!important;top:-9999px!important';
 						hidden++;
 					}
-				});
+				}
 			} catch(e) {}
-		});
+		}
 
-		if (window.__spotiliteDebug && hidden > 0) {
+		if (hidden > 0 && window.__spotiliteDebug) {
 			console.log('[Spotilite AdBlock] Hidden ' + hidden + ' elements');
 		}
+	} catch(e) {
+		console.error('[Spotilite AdBlock] Error hiding elements:', e);
+	}
+}
+
+function protectPlayerInfo() {
+	try {
+		for (var i = 0; i < PROTECTED_SELECTORS.length; i++) {
+			var els = document.querySelectorAll(PROTECTED_SELECTORS[i]);
+			for (var j = 0; j < els.length; j++) {
+				var el = els[j];
+				if (el.style.display === 'none' || el.style.visibility === 'hidden') {
+					el.style.cssText = 'display:inherit!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;position:static!important';
+				}
+			}
+		}
 	} catch(e) {}
+}
+
+function checkIfAdPlaying() {
+	try {
+		var nowPlayingBar = document.querySelector('.main-nowPlayingBar-nowPlayingBar, [data-testid="now-playing-bar"], .now-playing-bar');
+		if (!nowPlayingBar) return false;
+
+		for (var i = 0; i < AD_AUDIO_INDICATORS.length; i++) {
+			var adEl = nowPlayingBar.querySelector(AD_AUDIO_INDICATORS[i]);
+			if (adEl && adEl.offsetParent !== null) {
+				return true;
+			}
+		}
+
+		var skipBtn = document.querySelector('[data-testid="skip-button"], [data-testid="control-button-skip-forward"]');
+		if (skipBtn) {
+			var isVisible = skipBtn.offsetParent !== null && !skipBtn.disabled;
+			if (isVisible) {
+				var ariaLabel = skipBtn.getAttribute('aria-label') || '';
+				if (ariaLabel.toLowerCase().includes('skip') || ariaLabel.toLowerCase().includes('saltar')) {
+					var trackInfo = nowPlayingBar.querySelector('[data-testid="track-info"], .track-info');
+					if (!trackInfo || !trackInfo.offsetParent) {
+						return true;
+					}
+				}
+			}
+		}
+
+		var adBadge = nowPlayingBar.querySelector('[data-testid="now-playing-bar-ad"]');
+		if (adBadge && adBadge.offsetParent !== null) return true;
+
+		var entityBadges = nowPlayingBar.querySelectorAll('[class*="badge"], [class*="Badge"]');
+		for (var j = 0; j < entityBadges.length; j++) {
+			var text = entityBadges[j].textContent || '';
+			if (text.toLowerCase().includes('ad') || text.toLowerCase().includes('sponsor') || text.toLowerCase().includes('publicidad') || text.toLowerCase().includes('anuncio')) {
+				return true;
+			}
+		}
+	} catch(e) {
+		console.error('[Spotilite AdBlock] Error checking ad:', e);
+	}
+	return false;
 }
 
 function trySkipAd() {
 	if (!window.__spotiliteIsAdPlaying) {
 		var isAd = checkIfAdPlaying();
 		if (!isAd) return false;
-		adConfirmCount++;
-		if (adConfirmCount < AD_CONFIRM_THRESHOLD) {
-			console.log('[Spotilite AdBlock] Ad detected, waiting for confirmation (' + adConfirmCount + '/' + AD_CONFIRM_THRESHOLD + ')');
+		window.__spotiliteAdConfirmCount++;
+		if (window.__spotiliteAdConfirmCount < AD_CONFIRM_THRESHOLD) {
+			console.log('[Spotilite AdBlock] Ad detected (' + window.__spotiliteAdConfirmCount + '/' + AD_CONFIRM_THRESHOLD + ')');
 			return false;
 		}
 		console.log('[Spotilite AdBlock] Ad confirmed, attempting skip');
@@ -277,7 +373,7 @@ function trySkipAd() {
 		var skipBtn = document.querySelector('[data-testid="skip-button"]');
 		if (skipBtn && skipBtn.offsetParent !== null && !skipBtn.disabled) {
 			skipBtn.click();
-			console.log('[Spotilite AdBlock] Skipped ad');
+			console.log('[Spotilite AdBlock] Skipped ad via skip button');
 			resetAdState();
 			return true;
 		}
@@ -285,158 +381,201 @@ function trySkipAd() {
 		var nextBtn = document.querySelector('[data-testid="control-button-skip-forward"]');
 		if (nextBtn && nextBtn.offsetParent !== null && !nextBtn.disabled) {
 			nextBtn.click();
-			console.log('[Spotilite AdBlock] Skipped ad via next');
+			console.log('[Spotilite AdBlock] Skipped ad via next button');
 			resetAdState();
 			return true;
 		}
-	} catch(e) {}
-	return false;
-}
 
-function checkIfAdPlaying() {
-	try {
-		var nowPlayingBar = document.querySelector('.main-nowPlayingBar-nowPlayingBar');
-		if (!nowPlayingBar) return false;
-
-		var adBadge = nowPlayingBar.querySelector('[data-testid="now-playing-bar-ad"]');
-		if (adBadge) return true;
-
-		var entityBadges = nowPlayingBar.querySelectorAll('[class*="badge"], [class*="Badge"], [data-testid*="ad"]');
-		for (var i = 0; i < entityBadges.length; i++) {
-			var text = entityBadges[i].textContent || '';
-			if (text.toLowerCase().includes('ad') || text.toLowerCase().includes('sponsor') || text.toLowerCase().includes('publicidad')) {
+		var player = document.querySelector('audio[data-testid="audio-player"], .Html5AudioPlayer audio');
+		if (player) {
+			var currentTime = player.currentTime;
+			var duration = player.duration;
+			if (duration && duration > 0 && duration < 30 && currentTime < 5) {
+				player.currentTime = duration - 0.1;
+				console.log('[Spotilite AdBlock] Fast-forwarded short ad');
+				resetAdState();
 				return true;
 			}
 		}
-
-		var skipBtn = document.querySelector('[data-testid="skip-button"]');
-		if (skipBtn) {
-			var ariaLabel = skipBtn.getAttribute('aria-label') || '';
-			if (ariaLabel.toLowerCase().includes('skip')) {
-				var isVisible = skipBtn.offsetParent !== null && !skipBtn.disabled;
-				if (isVisible) return true;
-			}
-		}
-
-		var titleContainer = nowPlayingBar.querySelector('[class*="title"], [class*="Title"]');
-		if (titleContainer) {
-			var titleText = titleContainer.textContent || '';
-			if (titleText.includes(':')) {
-				var parts = titleText.split(':');
-				if (parts.length === 2 && parts[0].trim().length < 20 && parts[1].trim().length < 20) {
-					return true;
-				}
-			}
-		}
-	} catch(e) {}
+	} catch(e) {
+		console.error('[Spotilite AdBlock] Error skipping ad:', e);
+	}
 	return false;
 }
 
 function resetAdState() {
-	adConfirmCount = 0;
+	window.__spotiliteAdConfirmCount = 0;
 	window.__spotiliteIsAdPlaying = false;
 }
 
-function detectAndBlockAudioAds() {
-	var isAd = checkIfAdPlaying();
-	if (isAd && adConfirmCount >= AD_CONFIRM_THRESHOLD) {
-		trySkipAd();
-	}
+var visibilityObserver = null;
+function startIntersectionObserver() {
+	if (!('IntersectionObserver' in window)) return;
+
+	var adElements = document.querySelectorAll(AD_SELECTORS.join(','));
+	adElements.forEach(function(el) {
+		visibilityObserver.observe(el);
+	});
 }
 
-function detectAndBlockAudioAds() {
-	var isAd = checkIfAdPlaying();
-	if (isAd && adConfirmCount >= AD_CONFIRM_THRESHOLD) {
-		trySkipAd();
-	}
+if ('IntersectionObserver' in window) {
+	visibilityObserver = new IntersectionObserver(function(entries) {
+		entries.forEach(function(entry) {
+			if (entry.isIntersecting && entry.target) {
+				var el = entry.target;
+				for (var s = 0; s < AD_SELECTORS.length; s++) {
+					if (el.matches(AD_SELECTORS[s])) {
+						el.style.cssText = 'display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;height:0!important;width:0!important;overflow:hidden!important;position:absolute!important;left:-9999px!important;top:-9999px!important';
+						break;
+					}
+				}
+			}
+		});
+	}, { threshold: 0 });
 }
 
-hideAdElements();
+var mutationObserver = null;
+var domChangeBuffer = [];
+var domChangeTimer = null;
 
-var observer = new MutationObserver(function(mutations) {
+function processDomChanges() {
+	if (domChangeBuffer.length === 0) return;
+	
+	var changes = domChangeBuffer.splice(0);
 	var shouldHide = false;
 	var shouldCheckSkip = false;
 
-	mutations.forEach(function(mutation) {
+	for (var m = 0; m < changes.length; m++) {
+		var mutation = changes[m];
 		if (mutation.type === 'childList') {
-			mutation.addedNodes.forEach(function(node) {
+			var addedNodes = mutation.addedNodes;
+			for (var n = 0; n < addedNodes.length; n++) {
+				var node = addedNodes[n];
 				if (node.nodeType === Node.ELEMENT_NODE) {
-					AD_SELECTORS.forEach(function(sel) {
+					for (var s = 0; s < AD_SELECTORS.length; s++) {
 						try {
-							if (node.matches && node.matches(sel)) {
+							if (node.matches && node.matches(AD_SELECTORS[s])) {
 								shouldHide = true;
+								break;
 							}
-							var children = node.querySelectorAll(sel);
-							if (children.length > 0) shouldHide = true;
 						} catch(e) {}
-					});
+					}
 				}
-			});
+			}
 		}
 
-		if (mutation.type === 'attributes') {
+		if (mutation.type === 'attributes' && mutation.target.nodeType === Node.ELEMENT_NODE) {
 			var attr = mutation.attributeName;
 			if (attr === 'class' || attr === 'data-testid' || attr === 'aria-label') {
 				var val = mutation.target.getAttribute(attr) || '';
-				if (val.toLowerCase().includes('ad') || val.toLowerCase().includes('sponsor')) {
+				if (val.toLowerCase().includes('ad') || val.toLowerCase().includes('sponsor') || val.toLowerCase().includes('publicidad')) {
 					shouldHide = true;
 					shouldCheckSkip = true;
 				}
 			}
 		}
-	});
-
-	if (shouldHide) hideAdElements();
-	if (shouldCheckSkip) trySkipAd();
-});
-
-observer.observe(document.body || document.documentElement, {
-	childList: true,
-	subtree: true,
-	attributes: true,
-	attributeFilter: ['class', 'data-testid', 'aria-label', 'src', 'href']
-});
-
-var checkCount = 0;
-var skipCooldown = 0;
-var checkInterval = setInterval(function() {
-	checkCount++;
-	hideAdElements();
-
-	if (skipCooldown > 0) {
-		skipCooldown--;
 	}
 
-	if (checkCount % 3 === 0 && skipCooldown === 0) {
-		var wasAd = window.__spotiliteIsAdPlaying;
-		var skipped = trySkipAd();
-		if (skipped) {
-			skipCooldown = 6;
+	if (shouldHide) {
+		hideAdElements();
+		protectPlayerInfo();
+	}
+	if (shouldCheckSkip) {
+		trySkipAd();
+	}
+}
+
+function startObserving() {
+	var target = document.body || document.documentElement;
+	if (target) {
+		mutationObserver = new MutationObserver(function(mutations) {
+			domChangeBuffer = domChangeBuffer.concat(mutations);
+			if (domChangeBuffer.length > 50) domChangeBuffer = domChangeBuffer.slice(-50);
+			
+			clearTimeout(domChangeTimer);
+			domChangeTimer = setTimeout(processDomChanges, 100);
+		});
+		
+		mutationObserver.observe(target, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['class', 'data-testid', 'aria-label']
+		});
+	}
+}
+
+var checkInterval = null;
+function startPeriodicCheck() {
+	var checkCount = 0;
+	var skipCooldown = 0;
+	var currentInterval = CHECK_INTERVAL_BASE;
+
+	function checkLoop() {
+		checkCount++;
+		
+		var wasIdle = window.__spotiliteIdleTime > 0;
+		window.__spotiliteIdleTime++;
+		
+		if (checkCount % 2 === 0) {
+			hideAdElements();
+			protectPlayerInfo();
 		}
-		detectAndBlockAudioAds();
-	}
 
-	if (checkCount > 1000) {
-		checkCount = 0;
-	}
-
-	if (document.readyState === 'complete' && checkCount % 5 === 0) {
-		var adOverlay = document.querySelector('.ad-overlay, .ad-backdrop, [class*="ad-overlay"], [class*="AdOverlay"]');
-		if (adOverlay && adOverlay.offsetParent !== null) {
-			adOverlay.style.setProperty('display', 'none', 'important');
+		if (skipCooldown > 0) {
+			skipCooldown--;
 		}
+
+		if (checkCount % 5 === 0 && skipCooldown === 0) {
+			var skipped = trySkipAd();
+			if (skipped) {
+				skipCooldown = SKIP_COOLDOWN_MAX;
+				window.__spotiliteIdleTime = 0;
+				currentInterval = CHECK_INTERVAL_BASE;
+			}
+		}
+
+		if (checkCount % 20 === 0 && !window.__spotiliteIsAdPlaying) {
+			window.__spotiliteAdConfirmCount = 0;
+		}
+
+		if (window.__spotiliteIdleTime > 10 && currentInterval === CHECK_INTERVAL_BASE) {
+			currentInterval = CHECK_INTERVAL_IDLE;
+		} else if (window.__spotiliteIdleTime <= 10 && currentInterval === CHECK_INTERVAL_IDLE) {
+			currentInterval = CHECK_INTERVAL_BASE;
+		}
+
+		if (checkCount > 500) {
+			checkCount = 0;
+			window.__spotiliteIdleTime = 0;
+		}
+
+		checkInterval = setTimeout(checkLoop, currentInterval);
 	}
 
-	if (checkCount % 10 === 0 && !window.__spotiliteIsAdPlaying) {
-		adConfirmCount = 0;
-	}
-}, 500);
+	checkLoop();
+}
+
+function cleanup() {
+	if (checkInterval) clearTimeout(checkInterval);
+	if (mutationObserver) mutationObserver.disconnect();
+	if (visibilityObserver) visibilityObserver.disconnect();
+	if (domChangeTimer) clearTimeout(domChangeTimer);
+}
+
+hideAdElements();
+protectPlayerInfo();
+startObserving();
+startPeriodicCheck();
+startIntersectionObserver();
 
 window.__hideAdElements = hideAdElements;
 window.__trySkipAd = trySkipAd;
 window.__checkIfAdPlaying = checkIfAdPlaying;
+window.__protectPlayerInfo = protectPlayerInfo;
+window.__cleanup = cleanup;
 
-console.log('[Spotilite AdBlock] Initialized with confirmation-based skip (' + AD_CONFIRM_THRESHOLD + ' confirms required)');
+console.log('[Spotilite AdBlock] Optimized - IntersectionObserver + Debounce + Lazy Loading');
 })();
 `
 
@@ -472,5 +611,7 @@ func (m *AdBlockModule) Selectors() []string {
 		`[class*="AdBreak"]`,
 		`[class*="ad-slot"]`,
 		`[class*="AdSlot"]`,
+		`[data-testid="now-playing-bar-ad"]`,
+		`[class*="Commercial"]`,
 	}
 }

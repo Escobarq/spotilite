@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"runtime/debug"
 
 	"github.com/gen2brain/beeep"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -17,28 +18,28 @@ import (
 )
 
 type App struct {
-	ctx context.Context
-	i18n *i18n.Translator
-	tray *apptray.Manager
-	injector *spotify.Injector
-	api *api.Server
-	runInBackground bool
-	windowVisible bool
-	maximized bool
+	ctx                   context.Context
+	i18n                  *i18n.Translator
+	tray                  *apptray.Manager
+	injector              *spotify.Injector
+	api                   *api.Server
+	runInBackground       bool
+	windowVisible         bool
+	maximized             bool
 	hasNotifiedBackground bool
-	iconPath string
+	iconPath              string
 }
 
 func NewApp(i18n *i18n.Translator, tray *apptray.Manager, apiServer *api.Server, runInBackground bool, iconPath string) *App {
 	injector := spotify.NewInjector()
 	return &App{
-		i18n: i18n,
-		tray: tray,
-		injector: injector,
-		api: apiServer,
+		i18n:            i18n,
+		tray:            tray,
+		injector:        injector,
+		api:             apiServer,
 		runInBackground: runInBackground,
-		windowVisible: true,
-		iconPath: iconPath,
+		windowVisible:   true,
+		iconPath:        iconPath,
 	}
 }
 
@@ -143,6 +144,10 @@ func (a *App) OnBeforeClose(_ context.Context) bool {
 			slog.Warn("failed to show native notification", "error", err)
 		}
 		a.hasNotifiedBackground = true
+
+		// Liberar memoria de Go cuando pasa a segundo plano
+		go debug.FreeOSMemory()
+
 		return true
 	}
 
@@ -164,6 +169,10 @@ func (a *App) UnMaximize() {
 	a.maximized = false
 }
 
+func (a *App) ForceQuit() {
+	runtime.Quit(a.ctx)
+}
+
 func (a *App) Close() {
 	if a.runInBackground && !a.hasNotifiedBackground {
 		runtime.Hide(a.ctx)
@@ -183,6 +192,7 @@ func (a *App) ToggleWindowVisibility() {
 		runtime.Hide(a.ctx)
 		a.windowVisible = false
 		slog.Info("window hidden via global shortcut")
+		go debug.FreeOSMemory()
 	} else {
 		runtime.Show(a.ctx)
 		a.windowVisible = true

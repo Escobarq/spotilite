@@ -4,6 +4,8 @@ import {api} from '../models';
 
 export function Close():Promise<void>;
 
+export function ForceQuit():Promise<void>;
+
 export function GetSettings():Promise<api.Settings>;
 
 export function GetSpotXSettings():Promise<api.SpotXSettings>;

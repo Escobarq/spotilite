@@ -6,6 +6,10 @@ export function Close() {
   return window['go']['app']['App']['Close']();
 }
 
+export function ForceQuit() {
+  return window['go']['app']['App']['ForceQuit']();
+}
+
 export function GetSettings() {
   return window['go']['app']['App']['GetSettings']();
 }

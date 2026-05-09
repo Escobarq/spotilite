@@ -60,7 +60,11 @@ func main() {
 			}
 		},
 		func() {
-			os.Exit(0)
+			if application != nil {
+				application.ForceQuit()
+			} else {
+				os.Exit(0)
+			}
 		},
 	)
 
@@ -68,9 +72,9 @@ func main() {
 	apiServer.SetHandler(application)
 
 	err = wails.Run(&options.App{
-		Title:  translator.T("app.title"),
-		Width:  960,
-		Height: 640,
+		Title:     translator.T("app.title"),
+		Width:     960,
+		Height:    640,
 		Frameless: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
