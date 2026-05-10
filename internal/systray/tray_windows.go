@@ -70,11 +70,11 @@ func (m *Manager) handleClicks() {
 			if m.onShow != nil {
 				m.onShow()
 			}
-		case <-m.items.quit.ClickedCh:
-			if m.onQuit != nil {
-				m.onQuit()
-			}
-			systray.Quit()
+	case <-m.items.quit.ClickedCh:
+		systray.Quit()
+		if m.onQuit != nil {
+			m.onQuit()
+		}
 		}
 	}
 }
