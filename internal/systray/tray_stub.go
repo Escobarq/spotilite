@@ -22,3 +22,6 @@ func (m *Manager) Start() {}
 
 // Refresh does nothing.
 func (m *Manager) Refresh() {}
+
+// Quit does nothing.
+func (m *Manager) Quit() {}

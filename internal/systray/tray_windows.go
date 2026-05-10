@@ -70,15 +70,19 @@ func (m *Manager) handleClicks() {
 			if m.onShow != nil {
 				m.onShow()
 			}
-	case <-m.items.quit.ClickedCh:
-		systray.Quit()
-		if m.onQuit != nil {
-			m.onQuit()
-		}
+		case <-m.items.quit.ClickedCh:
+			if m.onQuit != nil {
+				m.onQuit()
+			}
+			return
 		}
 	}
 }
 
 func (m *Manager) onExit() {
 	slog.Info("system tray exited")
+}
+
+func (m *Manager) Quit() {
+	systray.Quit()
 }

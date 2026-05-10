@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"runtime/debug"
 
 	"github.com/gen2brain/beeep"
@@ -59,11 +60,11 @@ func (a *App) Startup(ctx context.Context) {
 }
 
 func (a *App) Shutdown(_ context.Context) {
-	slog.Info("shutting down, stopping global shortcuts and api")
+	slog.Info("shutting down, stopping global shortcuts, api and systray")
 	shortcut.Unregister()
-	if err := a.api.Stop(context.Background()); err != nil {
-		slog.Warn("failed to stop api server", "error", err)
-	}
+	a.tray.Quit()
+	a.api.Stop(context.Background())
+	os.Exit(0)
 }
 
 func (a *App) SetBackgroundMode(enabled bool) {
@@ -172,17 +173,24 @@ func (a *App) UnMaximize() {
 }
 
 func (a *App) ForceQuit() {
-	runtime.Quit(a.ctx)
+	slog.Info("force quit requested")
+	shortcut.Unregister()
+	a.tray.Quit()
+	os.Exit(0)
 }
 
 func (a *App) Close() {
 	if a.runInBackground {
+		slog.Info("hiding to system tray (background mode enabled)")
 		runtime.Hide(a.ctx)
 		a.windowVisible = false
 		beeep.Notify(a.i18n.T("app.title"), a.i18n.T("notif.minimizedToTray"), a.iconPath)
 		a.hasNotifiedBackground = true
 	} else {
-		runtime.Quit(a.ctx)
+		slog.Info("closing application (background mode disabled)")
+		shortcut.Unregister()
+		a.tray.Quit()
+		os.Exit(0)
 	}
 }
 

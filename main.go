@@ -98,4 +98,5 @@ func main() {
 		slog.Error("failed to run wails application", "error", err)
 		os.Exit(1)
 	}
+	os.Exit(0)
 }

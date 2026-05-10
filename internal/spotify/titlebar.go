@@ -12,9 +12,6 @@ var premiumSpoof = localStorage.getItem('spotilite.premium_spoof') !== 'false';
 var experiments = localStorage.getItem('spotilite.experiments') !== 'false';
 var historyOn = localStorage.getItem('spotilite.history') !== 'false';
 var bgMode = localStorage.getItem('spotilite.bg') !== 'false';
-var txt = lang === 'en'
-  ? {ad:'Ad Blocker',sec:'Block Sections',prem:'Hide Premium',exp:'Experiments',hist:'History',set:'Settings',lang:'Language',es:'Spanish',en:'English',app:'App',bg:'Background',min:'Minimize',max:'Maximize',rest:'Restore',close:'Close'}
-  : {ad:'Bloquear Anuncios',sec:'Bloquear Secciones',prem:'Ocultar Premium',exp:'Experimentos',hist:'Historial',set:'Ajustes',lang:'Idioma',es:'Espanol',en:'English',app:'App',bg:'Segundo Plano',min:'Minimizar',max:'Maximizar',rest:'Restaurar',close:'Cerrar'};
 function apiPost(path, data) {
   window.__origFetch(API + path, {
     method: 'POST',
@@ -22,6 +19,20 @@ function apiPost(path, data) {
     body: JSON.stringify(data || {})
   }).catch(function(e){});
 }
+function apiGet(path) {
+  return window.__origFetch(API + path).then(function(r){return r.json();}).catch(function(){return null;});
+}
+apiGet('/api/settings').then(function(s){
+  if (s) {
+    bgMode = s.backgroundMode;
+    lang = s.language;
+    localStorage.setItem('spotilite.bg', bgMode);
+    localStorage.setItem('spotilite.lang', lang);
+  }
+}).then(function(){
+  var txt = lang === 'en'
+    ? {ad:'Ad Blocker',sec:'Block Sections',prem:'Hide Premium',exp:'Experiments',hist:'History',set:'Settings',lang:'Language',es:'Spanish',en:'English',app:'App',bg:'Background',min:'Minimize',max:'Maximize',rest:'Restore',close:'Close'}
+    : {ad:'Bloquear Anuncios',sec:'Bloquear Secciones',prem:'Ocultar Premium',exp:'Experimentos',hist:'Historial',set:'Ajustes',lang:'Idioma',es:'Espanol',en:'English',app:'App',bg:'Segundo Plano',min:'Minimizar',max:'Maximizar',rest:'Restaurar',close:'Cerrar'};
 var bar = document.getElementById('spotilite-title-bar');
 if (bar) return;
 bar = document.createElement('div');
@@ -84,7 +95,13 @@ right.appendChild(winBtns);
 bar.appendChild(right);
 setBtn.onclick = function(e) {
   e.stopPropagation();
+  var wasActive = dd.classList.contains('active');
   dd.classList.toggle('active');
+  if (!wasActive) {
+    bgMode = localStorage.getItem('spotilite.bg') !== 'false';
+    lang = localStorage.getItem('spotilite.lang') || 'es';
+    upd();
+  }
 };
 document.addEventListener('click', function(e) {
   if (!setCont.contains(e.target)) dd.classList.remove('active');
@@ -109,6 +126,15 @@ function upd() {
   premBtn.className='spotilite-icon-btn'+(premiumSpoof?' active':'');
   expBtn.className='spotilite-icon-btn'+(experiments?' active':'');
   histBtn.className='spotilite-icon-btn'+(historyOn?' active':'');
+  var bgToggle = document.getElementById('spotilite-bg-toggle');
+  if (bgToggle) {
+    var t = bgToggle.querySelector('.spotilite-toggle');
+    if (t) t.className = 'spotilite-toggle' + (bgMode ? ' on' : '');
+  }
+  var radios = dd.querySelectorAll('.spotilite-radio');
+  for (var i = 0; i < radios.length; i++) radios[i].className = 'spotilite-radio';
+  if (lang === 'es' && radios[0]) radios[0].className = 'spotilite-radio on';
+  if (lang === 'en' && radios[1]) radios[1].className = 'spotilite-radio on';
 }
 upd();
 document.getElementById('spotilite-minimize').onclick = function() { apiPost('/api/window/minimize', {}); };
@@ -126,6 +152,7 @@ function applyOffset() {
 applyOffset();
 setInterval(applyOffset, 2000);
 window.addEventListener('resize', function() { applyOffset(); });
+});
 })();`
 
 const titleBarCSS = `
