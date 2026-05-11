@@ -1,17 +1,36 @@
 package modules
 
 const adblockCSS = `
+/* === AD BLOCKING - SPECIFIC SELECTORS ONLY === */
 [data-testid="ad-type-banner"],
 [data-testid="billboard-ad"],
 [data-testid="leaderboard-ad"],
 [data-testid="sponsorship-ad"],
 [data-testid="sponsored-playlist"],
 [data-testid="hpto-ad"],
-[class*="ad-banner"],
+[data-testid="card-clickout-ad"],
+[data-testid="ad-card"],
+[data-testid="ad-slot"],
+[data-testid="inactive-ad"],
+[data-testid="now-playing-bar-ad"],
 [class*="BillboardAd"],
 [class*="LeaderboardAd"],
 [class*="SponsoredPlaylist"],
-[class*="hpto-"],
+[class*="ad-banner"],
+[class*="ad-card"],
+[class*="AdCard"],
+[class*="sponsor-card"],
+[class*="SponsoredCard"],
+[class*="ad-slot"],
+[class*="AdSlot"],
+[class*="stuck-ad"],
+[class*="StuckAd"],
+[class*="spotify-ad"],
+[class*="SpotifyAd"],
+.main-leaderboardComponent-container,
+.main-billboardComponent-container,
+[aria-label="Advertisement"],
+[aria-label="Publicidad"],
 iframe[src*="ad.doubleclick.net"],
 iframe[src*="moatads"],
 iframe[src*="ads"],
@@ -20,41 +39,7 @@ iframe[src*="googleads"],
 iframe[src*="googlesyndication"],
 .WCbmOh4S3HVpA8RhH5Nj,
 .Vs2HPUVcMf1MUfOb8KqE,
-.tGKwoPuvNBNK3TzCSFQf,
-.main-leaderboardComponent-container,
-.main-billboardComponent-container,
-[aria-label="Advertisement"],
-[aria-label="Publicidad"],
-[data-testid="card-clickout-ad"],
-[data-testid="ad-card"],
-[class*="ad-card"],
-[class*="AdCard"],
-[class*="ad-container"],
-[class*="AdContainer"],
-[class*="sponsor-card"],
-[class*="SponsoredCard"],
-[data-testid*="ad-"],
-[class*="-ad-"],
-[class*="_ad_"],
-[class*="-Ad-"],
-[class*="adElement"],
-[class*="adElement"],
-[class*="advertisement"],
-[class*="Advertisement"],
-[id*="ad-"],
-[id*="Ad-"],
-[id*="advertisement"],
-[id*="sponsor"],
-[class*="spotify-ad"],
-[class*="SpotifyAd"],
-[data-testid="inactive-ad"],
-[class*="ad-break"],
-[class*="AdBreak"],
-[data-testid="ad-slot"],
-[class*="ad-slot"],
-[class*="AdSlot"],
-[class*="stuck-ad"],
-[class*="StuckAd"] {
+.tGKwoPuvNBNK3TzCSFQf {
 	display: none !important;
 	visibility: hidden !important;
 	opacity: 0 !important;
@@ -67,31 +52,107 @@ iframe[src*="googlesyndication"],
 	top: -9999px !important;
 }
 
-.main-nowPlayingBar-NowPlayingBar [data-testid="now-playing-bar-ad"],
-.main-nowPlayingBar-NowPlayingBar [class*="Commercial"],
-.main-nowPlayingBar-NowPlayingBar [class*="AdBreak"],
-.main-nowPlayingBar-NowPlayingBar [data-testid="ad-type-banner"] {
+/* Ad break overlays and modals - more specific */
+body > [class*="ad-break"],
+body > [class*="AdBreak"],
+div[class*="ad-break"] > *,
+div[class*="AdBreak"] > * {
 	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+	pointer-events: none !important;
 }
 
-*|*:not(html):not(body) > [class*="ad-break"]:not([class*="adblock"]),
-*|*:not(html):not(body) > [class*="AdBreak"]:not([class*="adblock"]) {
-	display: none !important;
+/* === CRITICAL: PROTECT NOW PLAYING BAR AND ALL CHILDREN === */
+.main-nowPlayingBar-nowPlayingBar,
+.main-nowPlayingBar-NowPlayingBar,
+[data-testid="now-playing-bar"],
+.now-playing-bar,
+footer[class*="NowPlayingBar"],
+footer[class*="nowPlayingBar"] {
+	display: flex !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+	pointer-events: auto !important;
+	position: relative !important;
+	height: auto !important;
+	min-height: 90px !important;
+	z-index: 1000 !important;
 }
 
-/* PROTECT PLAYER INFO - DO NOT HIDE THESE */
-.main-nowPlayingBar-nowPlayingBar [data-testid="track-info"],
-.main-nowPlayingBar-nowPlayingBar .track-info,
-.main-nowPlayingBar-nowPlayingBar [class*="TrackInfo"],
-.main-nowPlayingBar-nowPlayingBar [data-testid="context-menu"],
-.main-nowPlayingBar-nowPlayingBar [class*="PlaybackControl"],
-.main-nowPlayingBar-nowPlayingBar [data-testid="control-button"],
-.main-nowPlayingBar-nowPlayingBar [class*="NowPlayingBar"] {
+/* Protect ALL direct children and descendants of now playing bar */
+.main-nowPlayingBar-nowPlayingBar *,
+.main-nowPlayingBar-NowPlayingBar *,
+[data-testid="now-playing-bar"] *,
+.now-playing-bar *,
+footer[class*="NowPlayingBar"] *,
+footer[class*="nowPlayingBar"] * {
 	display: inherit !important;
 	visibility: visible !important;
 	opacity: 1 !important;
 	pointer-events: auto !important;
 	position: static !important;
+	max-height: none !important;
+	min-height: 0 !important;
+}
+
+/* Specifically protect track info area */
+.main-nowPlayingBar-nowPlayingBar [data-testid="track-info"],
+.main-nowPlayingBar-nowPlayingBar .track-info,
+.main-nowPlayingBar-nowPlayingBar [class*="TrackInfo"],
+[data-testid="now-playing-bar"] [data-testid="track-info"],
+[data-testid="now-playing-bar"] .track-info,
+[data-testid="now-playing-bar"] [class*="TrackInfo"] {
+	display: flex !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+	pointer-events: auto !important;
+	position: static !important;
+	flex-direction: row !important;
+	align-items: center !important;
+}
+
+/* Protect playback controls */
+.main-nowPlayingBar-nowPlayingBar [data-testid="control-button"],
+.main-nowPlayingBar-nowPlayingBar [class*="PlaybackControl"],
+.main-nowPlayingBar-nowPlayingBar [class*="PlayerControls"],
+[data-testid="now-playing-bar"] [data-testid="control-button"],
+[data-testid="now-playing-bar"] [class*="PlaybackControl"],
+[data-testid="now-playing-bar"] [class*="PlayerControls"] {
+	display: inline-flex !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+	pointer-events: auto !important;
+	position: static !important;
+}
+
+/* Protect volume and extra controls */
+.main-nowPlayingBar-nowPlayingBar [data-testid="volume-bar"],
+.main-nowPlayingBar-nowPlayingBar [class*="VolumeBar"],
+.main-nowPlayingBar-nowPlayingBar [data-testid="extra-controls"],
+.main-nowPlayingBar-nowPlayingBar [class*="ExtraControls"] {
+	display: flex !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+	pointer-events: auto !important;
+	position: static !important;
+}
+
+/* Override any ad-related styles within now playing bar */
+.main-nowPlayingBar-nowPlayingBar [class*="Commercial"],
+.main-nowPlayingBar-nowPlayingBar [class*="AdBreak"],
+.main-nowPlayingBar-nowPlayingBar [data-testid="ad-"],
+[data-testid="now-playing-bar"] [class*="Commercial"],
+[data-testid="now-playing-bar"] [class*="AdBreak"],
+[data-testid="now-playing-bar"] [data-testid="ad-"] {
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+	pointer-events: none !important;
+	height: 0 !important;
+	width: 0 !important;
+	padding: 0 !important;
+	margin: 0 !important;
 }
 `
 
@@ -188,8 +249,27 @@ var PROTECTED_SELECTORS = [
 	'[class*="TrackInfo"]',
 	'[data-testid="context-menu"]',
 	'[class*="PlaybackControl"]',
+	'[class*="PlayerControls"]',
 	'[data-testid="control-button"]',
-	'[class*="NowPlayingBar"]'
+	'[data-testid="volume-bar"]',
+	'[class*="VolumeBar"]',
+	'[data-testid="extra-controls"]',
+	'[class*="ExtraControls"]',
+	'.main-nowPlayingBar-nowPlayingBar',
+	'.main-nowPlayingBar-NowPlayingBar',
+	'[data-testid="now-playing-bar"]',
+	'.now-playing-bar',
+	'footer[class*="NowPlayingBar"]',
+	'footer[class*="nowPlayingBar"]'
+];
+
+var NOW_PLAYING_BAR_SELECTORS = [
+	'.main-nowPlayingBar-nowPlayingBar',
+	'.main-nowPlayingBar-NowPlayingBar',
+	'[data-testid="now-playing-bar"]',
+	'.now-playing-bar',
+	'footer[class*="NowPlayingBar"]',
+	'footer[class*="nowPlayingBar"]'
 ];
 
 function isAdUrl(url) {
@@ -302,16 +382,37 @@ function hideAdElements() {
 
 function protectPlayerInfo() {
 	try {
+		// First, ensure all now playing bar containers are visible
+		for (var n = 0; n < NOW_PLAYING_BAR_SELECTORS.length; n++) {
+			var npb = document.querySelector(NOW_PLAYING_BAR_SELECTORS[n]);
+			if (npb) {
+				if (npb.style.display === 'none' || npb.style.visibility === 'hidden' || npb.style.opacity === '0') {
+					npb.style.cssText = 'display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;position:relative!important;height:auto!important;min-height:90px!important;z-index:1000!important';
+				}
+				// Also protect ALL children of the now playing bar
+				var allChildren = npb.querySelectorAll('*');
+				for (var c = 0; c < allChildren.length; c++) {
+					var child = allChildren[c];
+					if (child.style.display === 'none' || child.style.visibility === 'hidden' || child.style.opacity === '0') {
+						child.style.cssText = 'display:inherit!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;position:static!important';
+					}
+				}
+			}
+		}
+		
+		// Then protect specific player elements
 		for (var i = 0; i < PROTECTED_SELECTORS.length; i++) {
 			var els = document.querySelectorAll(PROTECTED_SELECTORS[i]);
 			for (var j = 0; j < els.length; j++) {
 				var el = els[j];
-				if (el.style.display === 'none' || el.style.visibility === 'hidden') {
+				if (el.style.display === 'none' || el.style.visibility === 'hidden' || el.style.opacity === '0') {
 					el.style.cssText = 'display:inherit!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;position:static!important';
 				}
 			}
 		}
-	} catch(e) {}
+	} catch(e) {
+		console.error('[Spotilite AdBlock] Error protecting player info:', e);
+	}
 }
 
 function checkIfAdPlaying() {

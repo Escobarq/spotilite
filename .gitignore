@@ -1,19 +1,9 @@
 ```
 # Dependencies
-vendor/
+node_modules/
 
 # Build artifacts
-*.exe
-*.dll
-*.so
-*.a
-*.o
-*.obj
-*.out
-bin/
-dist/
-build/
-target/
+frontend/dist/
 
 # Logs and temp files
 *.log
@@ -23,31 +13,25 @@ target/
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
 
 # Editors
 .vscode/
 .idea/
-*.swp
-*.swo
 
-# Coverage
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Coverage reports
 coverage/
 htmlcov/
 .coverage
 
-# MyPy
-.mypy_cache/
-
-# Pytest
-.pytest_cache/
-
-# Gradle
-.gradle/
-
-# Julia
-julia-*/
-
-# Zig
-zig*/
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
 ```
