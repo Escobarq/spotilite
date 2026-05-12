@@ -18,6 +18,7 @@ var trayIconData []byte
 
 type menuItems struct {
 	show         *systray.MenuItem
+	background   *systray.MenuItem
 	adblock      *systray.MenuItem
 	sectionblock *systray.MenuItem
 	premiumspoof *systray.MenuItem
@@ -27,15 +28,18 @@ type menuItems struct {
 }
 
 type Manager struct {
-	i18n        *i18n.Translator
-	onShow      func()
-	onQuit      func()
-	onToggle    func(module string, enabled bool)
-	items       menuItems
-	state       *TrayState
+	i18n           *i18n.Translator
+	onShow         func()
+	onQuit         func()
+	onToggle       func(module string, enabled bool)
+	onToggleBg     func(enabled bool)
+	getBgMode      func() bool
+	items          menuItems
+	state          *TrayState
 }
 
 type TrayState struct {
+	Background   bool
 	AdBlock      bool
 	SectionBlock bool
 	PremiumSpoof bool
@@ -48,12 +52,16 @@ func NewManager(
 	iconPath string,
 	onShow, onQuit func(),
 	onToggle func(module string, enabled bool),
+	onToggleBg func(enabled bool),
+	getBgMode func() bool,
 ) *Manager {
 	return &Manager{
-		i18n:     i18n,
-		onShow:   onShow,
-		onQuit:   onQuit,
-		onToggle: onToggle,
+		i18n:       i18n,
+		onShow:     onShow,
+		onQuit:     onQuit,
+		onToggle:   onToggle,
+		onToggleBg: onToggleBg,
+		getBgMode:  getBgMode,
 		state: &TrayState{
 			AdBlock:      true,
 			SectionBlock: true,
@@ -77,6 +85,13 @@ func (m *Manager) Refresh() {
 	if m.items.adblock == nil {
 		return
 	}
+	if m.items.background != nil {
+		bgMode := false
+		if m.getBgMode != nil {
+			bgMode = m.getBgMode()
+		}
+		m.updateCheckbox(m.items.background, bgMode)
+	}
 	m.updateCheckbox(m.items.adblock, m.state.AdBlock)
 	m.updateCheckbox(m.items.sectionblock, m.state.SectionBlock)
 	m.updateCheckbox(m.items.premiumspoof, m.state.PremiumSpoof)
@@ -96,19 +111,27 @@ func (m *Manager) onReady() {
 	systray.SetIcon(trayIconData)
 	systray.SetTooltip("Spotilite")
 
-	m.items.show = systray.AddMenuItem("Show Window", "Show window")
+	m.items.show = systray.AddMenuItem(m.i18n.T("tray.show"), m.i18n.T("tray.show"))
 
 	systray.AddSeparator()
 
-	m.items.adblock = systray.AddMenuItemCheckbox("Ad Blocker", "Block ads", true)
-	m.items.sectionblock = systray.AddMenuItemCheckbox("Block Sections", "Block unwanted sections", true)
-	m.items.premiumspoof = systray.AddMenuItemCheckbox("Hide Premium", "Hide premium upsells", true)
-	m.items.experiments = systray.AddMenuItemCheckbox("Experiments", "Enable experiments", true)
-	m.items.history = systray.AddMenuItemCheckbox("History", "Track history", true)
+	bgMode := false
+	if m.getBgMode != nil {
+		bgMode = m.getBgMode()
+	}
+	m.items.background = systray.AddMenuItemCheckbox(m.i18n.T("tray.runInBackground"), m.i18n.T("tray.runInBackground"), bgMode)
 
 	systray.AddSeparator()
 
-	m.items.quit = systray.AddMenuItem("Quit", "Quit application")
+	m.items.adblock = systray.AddMenuItemCheckbox(m.i18n.T("spotx.adblock"), m.i18n.T("spotx.adblock"), true)
+	m.items.sectionblock = systray.AddMenuItemCheckbox(m.i18n.T("spotx.sections"), m.i18n.T("spotx.sections"), true)
+	m.items.premiumspoof = systray.AddMenuItemCheckbox(m.i18n.T("spotx.premium"), m.i18n.T("spotx.premium"), true)
+	m.items.experiments = systray.AddMenuItemCheckbox(m.i18n.T("spotx.experiments"), m.i18n.T("spotx.experiments"), true)
+	m.items.history = systray.AddMenuItemCheckbox(m.i18n.T("spotx.history"), m.i18n.T("spotx.history"), true)
+
+	systray.AddSeparator()
+
+	m.items.quit = systray.AddMenuItem(m.i18n.T("tray.quit"), m.i18n.T("tray.quit"))
 
 	go m.handleClicks()
 }
@@ -119,6 +142,12 @@ func (m *Manager) handleClicks() {
 		case <-m.items.show.ClickedCh:
 			if m.onShow != nil {
 				m.onShow()
+			}
+		case <-m.items.background.ClickedCh:
+			m.state.Background = !m.state.Background
+			m.updateCheckbox(m.items.background, m.state.Background)
+			if m.onToggleBg != nil {
+				m.onToggleBg(m.state.Background)
 			}
 		case <-m.items.adblock.ClickedCh:
 			m.state.AdBlock = !m.state.AdBlock

@@ -13,6 +13,9 @@ func NewManager(
 	_ *i18n.Translator,
 	_ string,
 	_, _ func(),
+	_ func(string, bool),
+	_ func(bool),
+	_ func() bool,
 ) *Manager {
 	return &Manager{}
 }

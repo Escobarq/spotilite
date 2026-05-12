@@ -71,6 +71,17 @@ func main() {
 				application.SetModuleEnabled(module, enabled)
 			}
 		},
+		func(enabled bool) {
+			if application != nil {
+				application.SetBackgroundMode(enabled)
+			}
+		},
+		func() bool {
+			if application != nil {
+				return application.IsBackgroundMode()
+			}
+			return true
+		},
 	)
 
 	application = app.NewApp(translator, trayManager, apiServer, runInBackground, notificationIconPath)
@@ -91,8 +102,9 @@ func main() {
 		Mac: &mac.Options{
 			Appearance: mac.NSAppearanceNameDarkAqua,
 		},
-		OnStartup:  application.Startup,
-		OnShutdown: application.Shutdown,
+		OnStartup:    application.Startup,
+		OnShutdown:   application.Shutdown,
+		OnBeforeClose: application.OnBeforeClose,
 		Bind: []interface{}{
 			application,
 		},

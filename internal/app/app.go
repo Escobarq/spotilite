@@ -70,6 +70,13 @@ func (a *App) Shutdown(_ context.Context) {
 func (a *App) SetBackgroundMode(enabled bool) {
 	a.runInBackground = enabled
 	slog.Info("background mode changed", "enabled", enabled)
+
+	if !enabled && !a.windowVisible {
+		slog.Info("background mode disabled while window hidden, quitting application")
+		shortcut.Unregister()
+		a.tray.Quit()
+		os.Exit(0)
+	}
 }
 
 func (a *App) IsBackgroundMode() bool {
