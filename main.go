@@ -66,16 +66,20 @@ func main() {
 				os.Exit(0)
 			}
 		},
+		func(module string, enabled bool) {
+			if application != nil {
+				application.SetModuleEnabled(module, enabled)
+			}
+		},
 	)
 
 	application = app.NewApp(translator, trayManager, apiServer, runInBackground, notificationIconPath)
 	apiServer.SetHandler(application)
 
 	err = wails.Run(&options.App{
-		Title:     translator.T("app.title"),
-		Width:     960,
-		Height:    640,
-		Frameless: true,
+		Title:  translator.T("app.title"),
+		Width:  960,
+		Height: 640,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
@@ -87,9 +91,8 @@ func main() {
 		Mac: &mac.Options{
 			Appearance: mac.NSAppearanceNameDarkAqua,
 		},
-		OnStartup:     application.Startup,
-		OnShutdown:    application.Shutdown,
-		OnBeforeClose: application.OnBeforeClose,
+		OnStartup:  application.Startup,
+		OnShutdown: application.Shutdown,
 		Bind: []interface{}{
 			application,
 		},

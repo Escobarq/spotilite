@@ -1,8 +1,9 @@
 package spotify
 
 const titleBarScript = `(function() {
-if (window.__spotilite_loaded) return;
-window.__spotilite_loaded = true;
+var bar = document.getElementById('spotilite-title-bar');
+var css = document.getElementById('spotilite-css-inject-titlebar');
+if (bar && css) return;
 if (!window.__origFetch) window.__origFetch = window.fetch.bind(window);
 var API = 'http://localhost:8765';
 var lang = localStorage.getItem('spotilite.lang') || 'es';

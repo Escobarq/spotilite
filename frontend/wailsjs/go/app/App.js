@@ -34,6 +34,10 @@ export function Minimize() {
   return window['go']['app']['App']['Minimize']();
 }
 
+export function OnBeforeClose(arg1) {
+  return window['go']['app']['App']['OnBeforeClose'](arg1);
+}
+
 export function OpenDevTools() {
   return window['go']['app']['App']['OpenDevTools']();
 }

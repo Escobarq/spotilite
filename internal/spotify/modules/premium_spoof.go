@@ -4,6 +4,8 @@ const premiumSpoofCSS = `
 [data-testid="upgrade-button"],
 [data-testid="premium-link"],
 [data-testid="upgrade-to-premium"],
+[data-testid="upsell-banner"],
+[data-testid="premium-upsell"],
 [href*="/premium"],
 [href*="/subscription"],
 [class*="upgrade-button"],
@@ -25,22 +27,8 @@ button[aria-label*="Obtén Premium"],
 #onetrust-banner-sdk,
 #onetrust-consent-sdk,
 [data-testid="cookie-banner"],
-[data-testid="consent-banner"] {
-	display: none !important;
-	visibility: hidden !important;
-	opacity: 0 !important;
-	pointer-events: none !important;
-	height: 0 !important;
-	width: 0 !important;
-	overflow: hidden !important;
-}
-
-.main-nowPlayingBar-commercial {
-	display: none !important;
-}
-
-[class*="sponsored"],
-[class*="Sponsored"] {
+[data-testid="consent-banner"],
+[data-encore-id="buttonTertiary"] {
 	display: none !important;
 }
 `
@@ -50,41 +38,60 @@ const premiumSpoofJS = `
 if (window.__spotilitePremiumSpoofInstalled) return;
 window.__spotilitePremiumSpoofInstalled = true;
 
-function hidePremiumElements() {
 var selectors = [
-'[data-testid="upgrade-button"]',
-'[data-testid="premium-link"]',
-'[data-testid="upgrade-to-premium"]',
-'button[aria-label*="Upgrade to Premium"]',
-'button[aria-label*="Actualizar a Premium"]',
-'button[aria-label*="Get Premium"]',
-'button[aria-label*="Obtén Premium"]',
-'[class*="upgrade-button"]',
-'[class*="CookiePolicy"]',
-'[class*="cookie-banner"]',
-'[data-testid="cookie-banner"]'
+	'[data-testid="upgrade-button"]',
+	'[data-testid="premium-link"]',
+	'[data-testid="upgrade-to-premium"]',
+	'[data-testid="upsell-banner"]',
+	'[data-testid="premium-upsell"]',
+	'button[aria-label*="Upgrade to Premium"]',
+	'button[aria-label*="Actualizar a Premium"]',
+	'button[aria-label*="Get Premium"]',
+	'button[aria-label*="Obtén Premium"]',
+	'[class*="upgrade-button"]',
+	'[class*="upsell"]',
+	'[class*="premium-upsell"]',
+	'[class*="CookiePolicy"]',
+	'[class*="cookie-banner"]',
+	'[data-testid="cookie-banner"]',
+	'a[href*="/premium"]',
+	'a[href*="/subscription"]',
+	'[data-encore-id="buttonTertiary"]',
+	'[data-encore-id="buttonSecondary"]'
 ];
-selectors.forEach(function(sel) {
-try {
-var nodes = document.querySelectorAll(sel);
-nodes.forEach(function(node) {
-node.style.display = 'none';
-node.style.visibility = 'hidden';
-node.style.height = '0';
-node.style.overflow = 'hidden';
-});
-} catch(e) {}
-});
 
-var iframes = document.querySelectorAll('iframe[src*="doubleclick"], iframe[src*="moatads"], iframe[src*="ads"]');
-iframes.forEach(function(iframe) {
-iframe.style.display = 'none';
-iframe.style.height = '0';
-});
+var premiumTexts = ['descubrir premium', 'discover premium', 'get premium', 'upgrade to premium', 'actualizar a premium', 'obtén premium', 'go premium'];
+
+function hasPremiumText(el) {
+	var text = (el.textContent || '').toLowerCase().trim();
+	for (var i = 0; i < premiumTexts.length; i++) {
+		if (text.indexOf(premiumTexts[i]) !== -1) return true;
+	}
+	return false;
 }
 
-setInterval(hidePremiumElements, 3000);
-setTimeout(hidePremiumElements, 2000);
+function hide() {
+	for (var i = 0; i < selectors.length; i++) {
+		try {
+			var els = document.querySelectorAll(selectors[i]);
+			for (var j = 0; j < els.length; j++) {
+				els[j].style.display = 'none';
+			}
+		} catch(e) {}
+	}
+
+	try {
+		var btns = document.querySelectorAll('button, a');
+		for (var k = 0; k < btns.length; k++) {
+			if (hasPremiumText(btns[k])) {
+				btns[k].style.display = 'none';
+			}
+		}
+	} catch(e) {}
+}
+
+hide();
+setInterval(hide, 3000);
 })();
 `
 

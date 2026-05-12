@@ -17,26 +17,50 @@ import (
 var trayIconData []byte
 
 type menuItems struct {
-	show *systray.MenuItem
-	quit *systray.MenuItem
+	show         *systray.MenuItem
+	adblock      *systray.MenuItem
+	sectionblock *systray.MenuItem
+	premiumspoof *systray.MenuItem
+	experiments  *systray.MenuItem
+	history      *systray.MenuItem
+	quit         *systray.MenuItem
 }
 
 type Manager struct {
-	i18n   *i18n.Translator
-	onShow func()
-	onQuit func()
-	items  menuItems
+	i18n        *i18n.Translator
+	onShow      func()
+	onQuit      func()
+	onToggle    func(module string, enabled bool)
+	items       menuItems
+	state       *TrayState
+}
+
+type TrayState struct {
+	AdBlock      bool
+	SectionBlock bool
+	PremiumSpoof bool
+	Experiments  bool
+	History      bool
 }
 
 func NewManager(
 	i18n *i18n.Translator,
 	iconPath string,
 	onShow, onQuit func(),
+	onToggle func(module string, enabled bool),
 ) *Manager {
 	return &Manager{
-		i18n:   i18n,
-		onShow: onShow,
-		onQuit: onQuit,
+		i18n:     i18n,
+		onShow:   onShow,
+		onQuit:   onQuit,
+		onToggle: onToggle,
+		state: &TrayState{
+			AdBlock:      true,
+			SectionBlock: true,
+			PremiumSpoof: true,
+			Experiments:  true,
+			History:      true,
+		},
 	}
 }
 
@@ -44,21 +68,47 @@ func (m *Manager) Start() {
 	go systray.Run(m.onReady, m.onExit)
 }
 
+func (m *Manager) UpdateState(state *TrayState) {
+	m.state = state
+	m.Refresh()
+}
+
 func (m *Manager) Refresh() {
-	if m.items.show == nil {
+	if m.items.adblock == nil {
 		return
 	}
-	m.items.show.SetTitle(m.i18n.T("tray.show"))
-	m.items.quit.SetTitle(m.i18n.T("tray.quit"))
+	m.updateCheckbox(m.items.adblock, m.state.AdBlock)
+	m.updateCheckbox(m.items.sectionblock, m.state.SectionBlock)
+	m.updateCheckbox(m.items.premiumspoof, m.state.PremiumSpoof)
+	m.updateCheckbox(m.items.experiments, m.state.Experiments)
+	m.updateCheckbox(m.items.history, m.state.History)
+}
+
+func (m *Manager) updateCheckbox(item *systray.MenuItem, checked bool) {
+	if checked {
+		item.Check()
+	} else {
+		item.Uncheck()
+	}
 }
 
 func (m *Manager) onReady() {
 	systray.SetIcon(trayIconData)
-	systray.SetTooltip(m.i18n.T("app.title"))
+	systray.SetTooltip("Spotilite")
 
-	m.items.show = systray.AddMenuItem(m.i18n.T("tray.show"), "Show window")
+	m.items.show = systray.AddMenuItem("Show Window", "Show window")
+
 	systray.AddSeparator()
-	m.items.quit = systray.AddMenuItem(m.i18n.T("tray.quit"), "Quit application")
+
+	m.items.adblock = systray.AddMenuItemCheckbox("Ad Blocker", "Block ads", true)
+	m.items.sectionblock = systray.AddMenuItemCheckbox("Block Sections", "Block unwanted sections", true)
+	m.items.premiumspoof = systray.AddMenuItemCheckbox("Hide Premium", "Hide premium upsells", true)
+	m.items.experiments = systray.AddMenuItemCheckbox("Experiments", "Enable experiments", true)
+	m.items.history = systray.AddMenuItemCheckbox("History", "Track history", true)
+
+	systray.AddSeparator()
+
+	m.items.quit = systray.AddMenuItem("Quit", "Quit application")
 
 	go m.handleClicks()
 }
@@ -69,6 +119,36 @@ func (m *Manager) handleClicks() {
 		case <-m.items.show.ClickedCh:
 			if m.onShow != nil {
 				m.onShow()
+			}
+		case <-m.items.adblock.ClickedCh:
+			m.state.AdBlock = !m.state.AdBlock
+			m.updateCheckbox(m.items.adblock, m.state.AdBlock)
+			if m.onToggle != nil {
+				m.onToggle("adblock", m.state.AdBlock)
+			}
+		case <-m.items.sectionblock.ClickedCh:
+			m.state.SectionBlock = !m.state.SectionBlock
+			m.updateCheckbox(m.items.sectionblock, m.state.SectionBlock)
+			if m.onToggle != nil {
+				m.onToggle("sectionblock", m.state.SectionBlock)
+			}
+		case <-m.items.premiumspoof.ClickedCh:
+			m.state.PremiumSpoof = !m.state.PremiumSpoof
+			m.updateCheckbox(m.items.premiumspoof, m.state.PremiumSpoof)
+			if m.onToggle != nil {
+				m.onToggle("premium_spoof", m.state.PremiumSpoof)
+			}
+		case <-m.items.experiments.ClickedCh:
+			m.state.Experiments = !m.state.Experiments
+			m.updateCheckbox(m.items.experiments, m.state.Experiments)
+			if m.onToggle != nil {
+				m.onToggle("experiments", m.state.Experiments)
+			}
+		case <-m.items.history.ClickedCh:
+			m.state.History = !m.state.History
+			m.updateCheckbox(m.items.history, m.state.History)
+			if m.onToggle != nil {
+				m.onToggle("history", m.state.History)
 			}
 		case <-m.items.quit.ClickedCh:
 			if m.onQuit != nil {
