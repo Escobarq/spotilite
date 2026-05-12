@@ -1,6 +1,6 @@
-```
 # Dependencies
 vendor/
+frontend/node_modules/
 
 # Build artifacts
 *.exe
@@ -36,18 +36,10 @@ coverage/
 htmlcov/
 .coverage
 
-# MyPy
-.mypy_cache/
+# OS files
+Thumbs.db
+.DS_Store
 
-# Pytest
-.pytest_cache/
-
-# Gradle
-.gradle/
-
-# Julia
-julia-*/
-
-# Zig
-zig*/
-```
+# Wails generated
+frontend/wailsjs/go/
+frontend/wailsjs/runtime/
