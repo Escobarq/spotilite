@@ -20,6 +20,7 @@ type menuItems struct {
 	show         *systray.MenuItem
 	background   *systray.MenuItem
 	adblock      *systray.MenuItem
+	proxyblock   *systray.MenuItem
 	sectionblock *systray.MenuItem
 	premiumspoof *systray.MenuItem
 	experiments  *systray.MenuItem
@@ -32,6 +33,7 @@ type Manager struct {
 	onShow         func()
 	onQuit         func()
 	onToggle       func(module string, enabled bool)
+	onToggleProxy   func(enabled bool)
 	onToggleBg     func(enabled bool)
 	getBgMode      func() bool
 	items          menuItems
@@ -52,16 +54,18 @@ func NewManager(
 	iconPath string,
 	onShow, onQuit func(),
 	onToggle func(module string, enabled bool),
+	onToggleProxy func(enabled bool),
 	onToggleBg func(enabled bool),
 	getBgMode func() bool,
 ) *Manager {
 	return &Manager{
-		i18n:       i18n,
-		onShow:     onShow,
-		onQuit:     onQuit,
-		onToggle:   onToggle,
-		onToggleBg: onToggleBg,
-		getBgMode:  getBgMode,
+		i18n:          i18n,
+		onShow:        onShow,
+		onQuit:        onQuit,
+		onToggle:      onToggle,
+		onToggleProxy: onToggleProxy,
+		onToggleBg:    onToggleBg,
+		getBgMode:     getBgMode,
 		state: &TrayState{
 			AdBlock:      true,
 			SectionBlock: true,
@@ -124,6 +128,7 @@ func (m *Manager) onReady() {
 	systray.AddSeparator()
 
 	m.items.adblock = systray.AddMenuItemCheckbox(m.i18n.T("spotx.adblock"), m.i18n.T("spotx.adblock"), true)
+	m.items.proxyblock = systray.AddMenuItemCheckbox(m.i18n.T("spotx.proxyblock"), m.i18n.T("spotx.proxyblock"), true)
 	m.items.sectionblock = systray.AddMenuItemCheckbox(m.i18n.T("spotx.sections"), m.i18n.T("spotx.sections"), true)
 	m.items.premiumspoof = systray.AddMenuItemCheckbox(m.i18n.T("spotx.premium"), m.i18n.T("spotx.premium"), true)
 	m.items.experiments = systray.AddMenuItemCheckbox(m.i18n.T("spotx.experiments"), m.i18n.T("spotx.experiments"), true)
@@ -154,6 +159,12 @@ func (m *Manager) handleClicks() {
 			m.updateCheckbox(m.items.adblock, m.state.AdBlock)
 			if m.onToggle != nil {
 				m.onToggle("adblock", m.state.AdBlock)
+			}
+		case <-m.items.proxyblock.ClickedCh:
+			m.state.AdBlock = !m.state.AdBlock
+			m.updateCheckbox(m.items.proxyblock, m.state.AdBlock)
+			if m.onToggleProxy != nil {
+				m.onToggleProxy(m.state.AdBlock)
 			}
 		case <-m.items.sectionblock.ClickedCh:
 			m.state.SectionBlock = !m.state.SectionBlock

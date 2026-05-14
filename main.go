@@ -73,6 +73,11 @@ func main() {
 		},
 		func(enabled bool) {
 			if application != nil {
+				application.SetProxyEnabled(enabled)
+			}
+		},
+		func(enabled bool) {
+			if application != nil {
 				application.SetBackgroundMode(enabled)
 			}
 		},

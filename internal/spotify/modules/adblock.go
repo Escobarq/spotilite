@@ -427,7 +427,16 @@ try {
 var els = document.querySelectorAll(highPrioritySelectors[s]);
 for (var e = 0; e < els.length; e++) {
 var el = els[e];
-if (el.style.display !== 'none') {
+var isProtected = false;
+for (var p = 0; p < PROTECTED_SELECTORS.length; p++) {
+try {
+if (el.matches && el.matches(PROTECTED_SELECTORS[p])) {
+isProtected = true;
+break;
+}
+} catch(ex) {}
+}
+if (!isProtected && el.style.display !== 'none') {
 el.style.cssText = 'display:none!important;visibility:hidden!important;opacity:0!important;height:0!important;width:0!important;pointer-events:none!important';
 highPriorityHidden++;
 hidden++;
@@ -441,7 +450,16 @@ try {
 var els = document.querySelectorAll(AD_SELECTORS[s]);
 for (var e = 0; e < els.length; e++) {
 var el = els[e];
-if (el.style.display !== 'none') {
+var isProtected = false;
+for (var p = 0; p < PROTECTED_SELECTORS.length; p++) {
+try {
+if (el.matches && el.matches(PROTECTED_SELECTORS[p])) {
+isProtected = true;
+break;
+}
+} catch(ex) {}
+}
+if (!isProtected && el.style.display !== 'none') {
 el.style.display = 'none';
 hidden++;
 }
@@ -466,12 +484,25 @@ console.error('[Spotilite AdBlock] Error hiding elements:', e);
 
 function protectPlayerInfo() {
 try {
+if (!window.__spotiliteIsAdPlaying) return;
+
 for (var i = 0; i < PROTECTED_SELECTORS.length; i++) {
 var els = document.querySelectorAll(PROTECTED_SELECTORS[i]);
 for (var j = 0; j < els.length; j++) {
 var el = els[j];
-if (el.style.display === 'none' || el.style.visibility === 'hidden') {
-el.style.cssText = 'display:inherit!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;position:static!important';
+var hasAdAttribute = false;
+try {
+var testId = el.getAttribute('data-testid') || '';
+var ariaLabel = el.getAttribute('aria-label') || '';
+if (testId.indexOf('ad-') !== -1 || testId.indexOf('ad') === 0 || 
+    ariaLabel.toLowerCase().indexOf('advertisement') !== -1 ||
+    ariaLabel.toLowerCase().indexOf('publicidad') !== -1) {
+hasAdAttribute = true;
+}
+} catch(e) {}
+
+if (!hasAdAttribute && (el.style.display === 'none' || el.style.visibility === 'hidden')) {
+el.style.cssText = 'display:inherit!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important';
 }
 }
 }
@@ -484,59 +515,30 @@ var nowPlayingBar = document.querySelector('.main-nowPlayingBar-nowPlayingBar, [
 if (!nowPlayingBar) return false;
 
 for (var i = 0; i < AD_AUDIO_INDICATORS.length; i++) {
-var adEl = nowPlayingBar.querySelector(AD_AUDIO_INDICATORS[i]);
+var adEl = document.querySelector(AD_AUDIO_INDICATORS[i]);
 if (adEl && adEl.offsetParent !== null) {
+var rect = adEl.getBoundingClientRect();
+if (rect.width > 0 && rect.height > 0) {
 console.log('[Spotilite AdBlock] Ad detected via indicator:', AD_AUDIO_INDICATORS[i]);
 return true;
+}
 }
 }
 
 var adElGlobal = document.querySelector('[data-testid="commercial-break"], [data-testid="ad-break"], [data-testid="ad-overlay"], [data-testid="ad-format-audio"]');
 if (adElGlobal && adElGlobal.offsetParent !== null) {
+var rect = adElGlobal.getBoundingClientRect();
+if (rect.width > 0 && rect.height > 0) {
 console.log('[Spotilite AdBlock] Ad detected via global element');
 return true;
 }
-
-var textContent = nowPlayingBar.textContent || '';
-var lowerText = textContent.toLowerCase();
-for (var p = 0; p < AD_TEXT_PATTERNS.length; p++) {
-if (lowerText.indexOf(AD_TEXT_PATTERNS[p]) !== -1) {
-console.log('[Spotilite AdBlock] Ad detected via text pattern:', AD_TEXT_PATTERNS[p]);
-return true;
-}
 }
 
-var trackInfo = nowPlayingBar.querySelector('[data-testid="track-info"], .track-info, [class*="TrackInfo"]');
-var hasTrackInfo = trackInfo && trackInfo.offsetParent !== null;
-
-var titleEl = nowPlayingBar.querySelector('[data-testid="track-title"], .track-title, [class*="TrackTitle"]');
-var hasTitle = titleEl && titleEl.textContent && titleEl.textContent.trim().length > 0;
-
-var artistEl = nowPlayingBar.querySelector('[data-testid="context-item-info-artist"], [class*="ArtistLink"], [data-testid="track-artist"]');
-var hasArtist = artistEl && artistEl.offsetParent !== null;
-
-if (!hasTrackInfo && !hasTitle && !hasArtist) {
-var skipBtn = document.querySelector('[data-testid="skip-button"], [data-testid="control-button-skip-forward"]');
-if (skipBtn) {
-var isVisible = skipBtn.offsetParent !== null && !skipBtn.disabled;
-if (isVisible) {
-console.log('[Spotilite AdBlock] Ad detected via missing track info + visible skip button');
-return true;
-}
-}
-}
-
-var adBadge = nowPlayingBar.querySelector('[data-testid="now-playing-bar-ad"], [data-testid="ad-badge"], [data-testid="ad-label"]');
+var adBadge = document.querySelector('[data-testid="now-playing-bar-ad"], [data-testid="ad-badge"], [data-testid="ad-label"]');
 if (adBadge && adBadge.offsetParent !== null) {
+var rect = adBadge.getBoundingClientRect();
+if (rect.width > 0 && rect.height > 0) {
 console.log('[Spotilite AdBlock] Ad detected via ad badge');
-return true;
-}
-
-var playerControls = document.querySelector('[data-testid="player-controls"], [class*="PlayerControls"]');
-if (playerControls) {
-var adText = playerControls.textContent || '';
-if (adText.toLowerCase().includes('ad ') || adText.toLowerCase().includes('anuncio') || adText.toLowerCase().includes('commercial')) {
-console.log('[Spotilite AdBlock] Ad detected via player controls text');
 return true;
 }
 }
@@ -810,13 +812,16 @@ checkCount++;
 window.__spotiliteIdleTime++;
 
 hideAdElements();
+
+if (window.__spotiliteIsAdPlaying) {
 protectPlayerInfo();
+}
 
 if (skipCooldown > 0) {
 skipCooldown--;
 }
 
-var isActiveAd = window.__spotiliteIsAdPlaying || window.__spotiliteConsecutiveAdDetections > 2;
+var isActiveAd = window.__spotiliteIsAdPlaying || window.__spotiliteConsecutiveAdDetections > 3;
 if (isActiveAd) {
 currentInterval = CHECK_INTERVAL_ACTIVE_AD;
 window.__spotiliteIdleTime = 0;

@@ -12,6 +12,7 @@ import (
 
 	"spotilite/internal/api"
 	"spotilite/internal/i18n"
+	"spotilite/internal/proxy"
 	"spotilite/internal/shortcut"
 	"spotilite/internal/spotify"
 	"spotilite/internal/spotify/modules"
@@ -29,10 +30,12 @@ type App struct {
 	maximized             bool
 	hasNotifiedBackground bool
 	iconPath              string
+	adProxy               *proxy.AdBlockProxy
 }
 
 func NewApp(i18n *i18n.Translator, tray *apptray.Manager, apiServer *api.Server, runInBackground bool, iconPath string) *App {
 	injector := spotify.NewInjector()
+	adProxy := proxy.NewAdBlockProxy("8766")
 	return &App{
 		i18n:            i18n,
 		tray:            tray,
@@ -41,6 +44,7 @@ func NewApp(i18n *i18n.Translator, tray *apptray.Manager, apiServer *api.Server,
 		runInBackground: runInBackground,
 		windowVisible:   true,
 		iconPath:        iconPath,
+		adProxy:         adProxy,
 	}
 }
 
@@ -56,14 +60,19 @@ func (a *App) Startup(ctx context.Context) {
 		slog.Info("global shortcut registered", "shortcut", "Ctrl+Shift+S")
 	}
 
+	if err := a.adProxy.Start(ctx); err != nil {
+		slog.Warn("failed to start ad-block proxy", "error", err)
+	}
+
 	a.injector.Start(ctx)
 }
 
 func (a *App) Shutdown(_ context.Context) {
-	slog.Info("shutting down, stopping global shortcuts, api and systray")
+	slog.Info("shutting down, stopping global shortcuts, api, proxy and systray")
 	shortcut.Unregister()
 	a.tray.Quit()
 	a.api.Stop(context.Background())
+	a.adProxy.Stop()
 	os.Exit(0)
 }
 
@@ -104,6 +113,11 @@ func (a *App) SetModuleEnabled(name string, enabled bool) {
 	}
 	m.SetEnabled(enabled)
 	slog.Info("module toggled", "name", name, "enabled", enabled)
+}
+
+func (a *App) SetProxyEnabled(enabled bool) {
+	a.adProxy.SetEnabled(enabled)
+	slog.Info("proxy ad-blocking toggled", "enabled", enabled)
 }
 
 func (a *App) SetLyricsTheme(theme string) {
