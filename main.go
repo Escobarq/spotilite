@@ -14,11 +14,15 @@ import (
 
 	"spotilite/internal/api"
 	"spotilite/internal/app"
+	"spotilite/internal/config"
+	"spotilite/internal/customapps"
+	"spotilite/internal/extensions"
 	"spotilite/internal/i18n"
+	"spotilite/internal/themes"
 	apptray "spotilite/internal/systray"
 )
 
-//go:embed all:frontend/dist
+//go:embed all:internal/embed/assets
 var assets embed.FS
 
 func main() {
@@ -50,6 +54,17 @@ func main() {
 	var application *app.App
 
 	apiServer := api.NewServer(nil) // Handler will be set after App is created
+
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Warn("failed to load spicetify config, continuing with defaults", "error", err)
+		cfg = config.MustLoad()
+	}
+	slog.Info("spicetify config loaded", "path", cfg.Path(), "theme", cfg.CurrentTheme, "extensions", cfg.EnabledExtensions())
+
+	themeManager := themes.NewManager([]string{cfg.UserThemesDir})
+	extLoader := extensions.NewLoader([]string{cfg.UserExtensionsDir}, "http://localhost:8765")
+	appManager := customapps.NewManager([]string{cfg.UserCustomAppsDir})
 
 	trayManager := apptray.NewManager(
 		translator,
@@ -89,7 +104,7 @@ func main() {
 		},
 	)
 
-	application = app.NewApp(translator, trayManager, apiServer, runInBackground, notificationIconPath)
+	application = app.NewApp(translator, trayManager, apiServer, cfg, themeManager, extLoader, appManager, runInBackground, notificationIconPath)
 	apiServer.SetHandler(application)
 
 	err = wails.Run(&options.App{

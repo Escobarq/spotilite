@@ -6,16 +6,21 @@ import (
 	"log/slog"
 	"os"
 	"runtime/debug"
+	"strings"
 
 	"github.com/gen2brain/beeep"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"spotilite/internal/api"
+	"spotilite/internal/config"
+	"spotilite/internal/customapps"
+	"spotilite/internal/extensions"
 	"spotilite/internal/i18n"
 	"spotilite/internal/proxy"
 	"spotilite/internal/shortcut"
 	"spotilite/internal/spotify"
 	"spotilite/internal/spotify/modules"
+	"spotilite/internal/themes"
 	apptray "spotilite/internal/systray"
 )
 
@@ -25,6 +30,10 @@ type App struct {
 	tray                  *apptray.Manager
 	injector              *spotify.Injector
 	api                   *api.Server
+	cfg                   *config.Config
+	themeManager          *themes.Manager
+	extLoader             *extensions.Loader
+	appManager            *customapps.Manager
 	runInBackground       bool
 	windowVisible         bool
 	maximized             bool
@@ -33,7 +42,7 @@ type App struct {
 	adProxy               *proxy.AdBlockProxy
 }
 
-func NewApp(i18n *i18n.Translator, tray *apptray.Manager, apiServer *api.Server, runInBackground bool, iconPath string) *App {
+func NewApp(i18n *i18n.Translator, tray *apptray.Manager, apiServer *api.Server, cfg *config.Config, themeManager *themes.Manager, extLoader *extensions.Loader, appManager *customapps.Manager, runInBackground bool, iconPath string) *App {
 	injector := spotify.NewInjector()
 	adProxy := proxy.NewAdBlockProxy("8766")
 	return &App{
@@ -41,6 +50,10 @@ func NewApp(i18n *i18n.Translator, tray *apptray.Manager, apiServer *api.Server,
 		tray:            tray,
 		injector:        injector,
 		api:             apiServer,
+		cfg:             cfg,
+		themeManager:    themeManager,
+		extLoader:       extLoader,
+		appManager:      appManager,
 		runInBackground: runInBackground,
 		windowVisible:   true,
 		iconPath:        iconPath,
@@ -64,6 +77,48 @@ func (a *App) Startup(ctx context.Context) {
 		slog.Warn("failed to start ad-block proxy", "error", err)
 	}
 
+	// Prepare the full injection payload: Spicetify wrapper + theme +
+	// extensions + custom apps. This payload is prepended before the builtin
+	// modules and the title bar on every injection tick.
+	var extra strings.Builder
+
+	// Note: spicetify.Bundle() is injected separately in the Injector
+
+	extra.WriteString(`(function(){
+var pressed={};
+window.addEventListener('keydown',function(e){
+pressed[e.key]=true;
+if(pressed['d']&&(pressed['Control']||pressed['Meta'])){
+e.preventDefault();
+try{
+if(window.chrome&&window.chrome.webview&&window.chrome.webview.openDevToolsWindow){
+window.chrome.webview.openDevToolsWindow();
+}else{
+console.warn('[Spotilite] DevTools not available via chrome.webview');
+}
+}catch(err){console.error('[Spotilite] DevTools error:',err);}
+}
+},true);
+window.addEventListener('keyup',function(e){delete pressed[e.key];});
+})();`)
+
+	// Extensions
+	if a.cfg != nil {
+		extNames := a.cfg.EnabledExtensions()
+		if len(extNames) > 0 {
+			script, skipped, err := a.extLoader.LoadAndBundle(extNames)
+			if err != nil {
+				slog.Warn("extension loader error", "error", err)
+			}
+			if len(skipped) > 0 {
+				slog.Warn("skipped extensions not found on disk", "names", skipped)
+			}
+			extra.WriteString(script)
+		}
+	}
+
+	slog.Info("[Spotilite] ExtraJS prepared", "len", extra.Len())
+	a.injector.SetExtraJS(extra.String())
 	a.injector.Start(ctx)
 }
 
@@ -236,5 +291,33 @@ func (a *App) Greet(name string) string {
 }
 
 func (a *App) OpenDevTools() {
-	runtime.BrowserOpenURL(a.ctx, "http://localhost:34115")
+	if a.ctx != nil {
+		runtime.WindowExecJS(a.ctx, `try{if(window.chrome&&window.chrome.webview&&window.chrome.webview.openDevToolsWindow){window.chrome.webview.openDevToolsWindow()}else{console.warn('[Spotilite] DevTools not available via chrome.webview')}}catch(e){console.error('[Spotilite] DevTools error:',e)}`)
+		slog.Info("devtools opened")
+	}
+}
+
+func jsStringGo(s string) string {
+	var b strings.Builder
+	b.WriteRune('"')
+	for _, r := range s {
+		switch r {
+		case '\\':
+			b.WriteString(`\\`)
+		case '"':
+			b.WriteString(`\"`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		case '\u0000':
+			b.WriteString(`\0`)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	b.WriteRune('"')
+	return b.String()
 }

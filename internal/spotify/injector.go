@@ -2,6 +2,7 @@ package spotify
 
 import (
 	"context"
+	"encoding/base64"
 	"log/slog"
 	"strings"
 	"time"
@@ -14,13 +15,14 @@ import (
 const (
 	SpotifyURL    = "https://open.spotify.com"
 	APIBaseURL    = "http://localhost:8765"
-	initialDelay  = 2 * time.Second
-	retryInterval = 3 * time.Second
+	initialDelay  = 5 * time.Second
+	retryInterval = 5 * time.Second
 	styleID       = "spotilite-css-inject"
 )
 
 type Injector struct {
-	modules []modules.Module
+	modules  []modules.Module
+	extraJS  string
 }
 
 func NewInjector(modList ...modules.Module) *Injector {
@@ -53,10 +55,13 @@ func (i *Injector) GetModule(name string) modules.Module {
 	return nil
 }
 
+func (i *Injector) SetExtraJS(js string) {
+	i.extraJS = js
+}
+
 func (i *Injector) Start(ctx context.Context) {
 	slog.Info("navigating to spotify", "url", SpotifyURL)
-	runtime.WindowExecJS(ctx, `window.location.replace('`+SpotifyURL+`')`)
-
+	runtime.WindowExecJS(ctx, "console.log('[Spotilite] Starting navigation');window.location.href='"+SpotifyURL+"';console.log('[Spotilite] Navigation triggered')")
 	go i.run(ctx)
 }
 
@@ -86,17 +91,22 @@ func (i *Injector) run(ctx context.Context) {
 
 func (i *Injector) inject(ctx context.Context) {
 	modulesScript := i.buildModulesScript()
+	extra := i.extraJS
 
-	script := `(function() {
-try {
-` + modulesScript + `
-console.log('[Spotilite] Injected successfully');
-} catch(e) {
-console.error('[Spotilite] Injection error:', e);
+	slog.Info("[Spotilite] Injection called", "extraLen", len(extra), "modulesLen", len(modulesScript))
+
+	// Build full code: modules + extra
+	fullCode := modulesScript + extra
+
+	// Use base64 + decodeURIComponent(escape(atob())) to handle UTF-8 correctly
+	b64 := b64Encode(fullCode)
+	evalScript := "try{var s=atob('" + b64 + "');var decoded=decodeURIComponent(escape(s));eval(decoded);console.log('[Spotilite] Injected successfully');}catch(e){console.error('[Spotilite] Injection error:',e.message||String(e));};"
+	runtime.WindowExecJS(ctx, evalScript)
+	slog.Info("[Spotilite] Injection sent")
 }
-})();`
 
-	runtime.WindowExecJS(ctx, script)
+func b64Encode(s string) string {
+	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
 func (i *Injector) buildModulesScript() string {
@@ -113,45 +123,24 @@ func (i *Injector) buildModulesScript() string {
 			cssBuilder.WriteString("\n")
 		}
 		if js := m.JS(); js != "" {
-			jsBuilder.WriteString("(function() { try { ")
+			jsBuilder.WriteString("try { ")
 			jsBuilder.WriteString(js)
-			jsBuilder.WriteString(" } catch(e) { console.error('[Spotilite] Module error:', e); } })();\n")
+			jsBuilder.WriteString(" } catch(e) { console.error('[Spotilite] Module error:', e); } ")
 		}
 		if sels := m.Selectors(); len(sels) > 0 {
 			selectors = append(selectors, sels...)
 		}
 	}
 
+	css := cssBuilder.String()
 	js := jsBuilder.String()
 	selArray := buildSelectorArray(selectors)
 
-	return `(function() {` +
-		`try {` +
-		`var styleId = '` + styleID + `-modules';` +
-		`var style = document.getElementById(styleId);` +
-		`if (!style) {` +
-		`style = document.createElement('style');` +
-		`style.id = styleId;` +
-		`style.textContent = ` + jsString(cssBuilder.String()) + `;` +
-		`document.head.appendChild(style);` +
-		`}` +
-		`} catch(e) { console.error('[Spotilite] Module CSS error:', e); }` +
-		`try {` +
-		js +
-		`var selectors = [` + selArray + `];` +
-		`selectors.forEach(function(sel) {` +
-		`try {` +
-		`var nodes = document.querySelectorAll(sel);` +
-		`nodes.forEach(function(node) {` +
-		`node.style.display = 'none';` +
-		`node.style.visibility = 'hidden';` +
-		`node.style.opacity = '0';` +
-		`node.style.pointerEvents = 'none';` +
-		`});` +
-		`} catch (e) {}` +
-		`});` +
-		`} catch(e) { console.error('[Spotilite] Module JS error:', e); }` +
-		`})();`
+	// Build hiding selectors script
+	hideScript := "var selectors=[" + selArray + "];selectors.forEach(function(sel){try{document.querySelectorAll(sel).forEach(function(node){node.style.display='none';node.style.visibility='hidden';node.style.opacity='0';node.style.pointerEvents='none';});}catch(e){}});"
+
+	// Build final script that injects CSS and runs JS - escape the css string for JS
+	return "try{var styleId='" + styleID + "-modules';var style=document.getElementById(styleId);if(!style){style=document.createElement('style');style.id=styleId;style.textContent=" + jsString(css) + ";document.head.appendChild(style);}}catch(e){console.error('[Spotilite] Module CSS error:',e);}" + js + hideScript
 }
 
 func jsString(s string) string {

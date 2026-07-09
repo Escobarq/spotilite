@@ -1,6 +1,5 @@
 # Dependencies
 vendor/
-frontend/node_modules/
 node_modules/
 
 # Build artifacts
@@ -13,7 +12,6 @@ node_modules/
 *.out
 bin/
 dist/
-build/
 target/
 
 # Logs and temp files
@@ -41,6 +39,5 @@ htmlcov/
 Thumbs.db
 .DS_Store
 
-# Wails generated
-frontend/wailsjs/go/
-frontend/wailsjs/runtime/
+# Wails generated (when running wails dev/build)
+wailsjs/

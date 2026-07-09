@@ -4,26 +4,17 @@
 
 ### Go
 
-Instala Go 1.23 o superior desde [go.dev](https://go.dev/dl/).
+Instala Go 1.22 o superior desde [go.dev](https://go.dev/dl/).
 
 Verifica la instalación:
 ```bash
 go version
 ```
 
-### Node.js y npm
-
-Instala Node.js 18+ desde [nodejs.org](https://nodejs.org/).
-
-Verifica la instalación:
-```bash
-node --version
-npm --version
-```
-
 ### Wails CLI
 
-Instala la herramienta de línea de comandos de Wails:
+Instala la herramienta de línea de comandos de Wails (necesaria sólo si quieres empaquetar iconos/manifiestos o ejecutar en modo dev):
+
 ```bash
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ```
@@ -32,6 +23,8 @@ Verifica la instalación:
 ```bash
 wails version
 ```
+
+> **No se requiere Node.js, npm ni Vite.** El frontend React fue eliminado; el splash inicial es un `index.html` embebido en el binario vía `//go:embed`.
 
 ### Dependencias de Windows
 
@@ -48,19 +41,11 @@ cd spotilite
 
 ## Instalar Dependencias
 
-### Backend (Go)
-
 ```bash
 go mod tidy
 ```
 
-### Frontend (React)
-
-```bash
-cd frontend
-npm install
-cd ..
-```
+Eso es todo. Sólo dependencias Go.
 
 ## Ejecutar en Modo Desarrollo
 
@@ -69,10 +54,14 @@ wails dev
 ```
 
 Esto:
-1. Inicia el frontend en modo hot-reload (Vite).
-2. Compila el backend Go.
-3. Abre la ventana de Spotilite.
-4. Recarga automáticamente cuando cambias archivos del frontend.
+1. Compila el backend Go en modo hot-reload.
+2. Abre la ventana de Spotilite con el splash nativo.
+3. Recarga automáticamente cuando cambias archivos Go (runtime.WindowReload no es necesario; los cambios se inyectan cada vez que guardas).
+
+Sin Wails CLI también puedes:
+```bash
+go build -o spotilite.exe . && ./spotilite.exe
+```
 
 ## Compilar para Producción
 
@@ -84,9 +73,14 @@ wails build
 
 El ejecutable se genera en `build/bin/Spotilite.exe`.
 
+Alternativa sin Wails CLI:
+```bash
+go build -ldflags="-H windowsgui -s -w" -o spotilite.exe .
+```
+
 ### Con Icono Personalizado
 
-Asegúrate de que `build/windows/icon.ico` existe. Wails lo incrusta automáticamente en el ejecutable.
+Asegúrate de que `build/windows/icon.ico` existe. Wails lo incrusta automáticamente en el ejecutable; `go build` directo sólo respeta este icono si la build se hace vía Wails.
 
 ### Para Otras Plataformas
 
@@ -107,31 +101,19 @@ wails build -platform linux/amd64
 Instala el runtime de WebView2:
 https://developer.microsoft.com/en-us/microsoft-edge/webview2/
 
-### Error: "wails.exe.manifest" no encontrado
+### Error leyendo `config-xpui.ini`
 
-Asegúrate de tener el archivo `build/windows/wails.exe.manifest`. Si lo perdiste, puedes regenerar la estructura con:
-```bash
-wails init
-```
+Spotilite intenta leer y mantener el archivo que spicetify-cli usa. Si no existe (primera vez), arranca con un Config vacío y crea el archivo la primera vez que guardes. Para apuntar a un config diferente, exporta `SPICETIFY_CONFIG=/ruta/al/archivo` antes de lanzar Spotilite.
 
-### La barra de título sigue siendo blanca
+### Las extensiones no se cargan
 
-Esto puede ocurrir si el manifiesto de Windows no declara compatibilidad con Windows 10/11. Verifica que `build/windows/wails.exe.manifest` contenga el nodo `<compatibility>` con el GUID `{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}`.
-
-### Los botones de la barra no funcionan
-
-1. Verifica que los bindings de Wails estén generados:
-   ```bash
-   wails generate module
-   ```
-2. Revisa la consola del desarrollador en la ventana de Wails (`Ctrl+Shift+I`).
-3. Asegúrate de que `window.go.app.App` existe en el contexto del webview.
+1. Verifica que el archivo existe en `%APPDATA%\spicetify\Extensions\` (o donde indique `UserExtensionsDir`).
+2. Revisa la consola del webview (`Ctrl+Shift+I` si `Wails dev` está en modo dev): las extensiones que fallen aparecen como `[Spotilite] extension <nombre> error:`.
+3. Algunas extensiones Spicetify requieren `Spicetify.GraphQL.Definitions` o acceso a `sp://` que **no están disponibles** en la web player. Esas extensiones no pueden funcionar en Spotilite (ver tabla en `README.md`).
 
 ### El icono no aparece en la bandeja
 
 El ejecutable busca el icono en `build/windows/icon.ico` relativo a su ubicación. Si mueves el `.exe`, asegúrate de que la carpeta `build/windows/` esté junto a él.
-
-En modo desarrollo (`wails dev`), el icono se busca en `./build/windows/icon.ico` desde la raíz del proyecto.
 
 ## Comandos Útiles
 
@@ -139,7 +121,7 @@ En modo desarrollo (`wails dev`), el icono se busca en `./build/windows/icon.ico
 |---|---|
 | `wails dev` | Modo desarrollo con hot-reload |
 | `wails build` | Compilar para producción |
-| `wails generate module` | Regenerar bindings Go→JS |
 | `go mod tidy` | Limpiar dependencias Go |
-| `go build ./...` | Compilar Go sin ejecutar |
-| `cd frontend && npm run build` | Compilar frontend manualmente |
+| `go build ./...` | Compilar Go sin ejecutar (todos los paquetes) |
+| `go test ./...` | Ejecutar la suite de tests |
+| `go vet ./...` | Validación estática |
