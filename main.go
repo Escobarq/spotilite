@@ -106,6 +106,7 @@ func main() {
 
 	application = app.NewApp(translator, trayManager, apiServer, cfg, themeManager, extLoader, appManager, runInBackground, notificationIconPath)
 	apiServer.SetHandler(application)
+	apiServer.SetSpicetifyHandler(application)
 
 	err = wails.Run(&options.App{
 		Title:  translator.T("app.title"),

@@ -54,7 +54,8 @@ func (m *Manifest) GetName() string {
 
 // App represents a loaded custom app ready for injection.
 type App struct {
-	Name       string      // folder name (used as route path)
+	Name       string      // display name from manifest (translation-aware)
+	FolderName string      // directory name on disk (used as route path and webpack chunk id)
 	Dir        string      // absolute path
 	Manifest   *Manifest   // parsed manifest.json
 	IndexJS    string      // contents of index.js (must define render(container))
@@ -172,13 +173,14 @@ func loadFromDir(dir string) (*App, error) {
 		strings.Contains(string(indexJS), "export function render")
 
 	app := &App{
-		Name:      mf.GetName(),
-		Dir:       dir,
-		Manifest:  &mf,
-		IndexJS:   string(indexJS),
-		Subfiles:  subfiles,
-		StylesCSS: stylesCSS,
-		HasRender: hasRender,
+		Name:       mf.GetName(),
+		FolderName: filepath.Base(dir),
+		Dir:        dir,
+		Manifest:   &mf,
+		IndexJS:     string(indexJS),
+		Subfiles:   subfiles,
+		StylesCSS:  stylesCSS,
+		HasRender:  hasRender,
 	}
 	app.JSBundle = strings.Join(subfiles, "\n") + "\n" + app.IndexJS
 	return app, nil
@@ -199,7 +201,7 @@ func (a *App) JSInjection() string {
 	if activeIcon == "" {
 		activeIcon = icon
 	}
-	js := fmt.Sprintf("(function(){var id='spotilite-app-%s';var path='/spotilite/%s';var active=false;var icon=%s;var activeIcon=%s;function log(m){console.log('[Spotilite CustomApp %s] '+m);}function inject(){log('Attempting...');var s=['li.main-navBar-navBarItem','.main-navBar-navBarItem','[class*=main-navBar-navBarItem]','.main-navBar-navBar','.main-appShell-sideBar li','.main-appShell-sideBar ul','.main-appShell-sideBar'];var n=null;for(var i=0;i<s.length;i++){var e=document.querySelector(s[i]);if(e){n=e;log('Found:'+s[i]);break;}}if(!n){log('Not found');setTimeout(inject,2000);return;}var p=n.parentElement||n;var li=document.createElement('li');li.className='main-navBar-navBarItem spotilite-app-link';li.dataset.name='%s';li.innerHTML=icon;li.title='%s';li.style.cssText='cursor:pointer;display:flex;align-items:center;justify-content:center;';li.onclick=function(e){e.preventDefault();e.stopPropagation();active=!active;if(active){history.pushState({app:'%s'},'',path);li.innerHTML=activeIcon;li.classList.add('main-navBar-navBarLinkActive');}else{history.back();li.innerHTML=icon;li.classList.remove('main-navBar-navBarLinkActive');}};p.appendChild(li);log('Injected');}function popState(e){var c=document.getElementById(id);if(!c)return;var st=(e&&e.state)||{};if(st.app==='%s'){c.style.display='block';active=true;}else{c.style.display='none';active=false;}}window.addEventListener('popstate',popState);setTimeout(inject,2000);})();",
+	js := fmt.Sprintf("(function(){var id='spotilite-app-%s';var path='/spotilite/%s';var active=false;var icon=%s;var activeIcon=%s;function log(m){console.log('[Spotilite CustomApp %s] '+m);}function inject(){log('Attempting...');var s=['li.main-navBar-navBarItem','.main-navBar-navBarItem','[class*=main-navBar-navBarItem]','.main-navBar-navBar','.main-appShell-sideBar li','.main-appShell-sideBar ul','.main-appShell-sideBar'];var n=null;for(var i=0;i<s.length;i++){var e=document.querySelector(s[i]);if(e){n=e;log('Found:'+s[i]);break;}}if(!n){log('Not found');setTimeout(inject,2000);return;}var p=n.parentElement||n;var li=document.createElement('li');li.className='main-navBar-navBarItem spotilite-app-link';li.dataset.name='%s';li.innerHTML=icon;li.title='%s';li.style.cssText='cursor:pointer;display:flex;align-items:center;justify-content:center;';li.onclick=function(e){e.preventDefault();e.stopPropagation();active=!active;if(active){history.pushState({app:'%s'},'',path);li.innerHTML=activeIcon;li.classList.add('main-navBar-navBarLinkActive');}else{history.back();li.innerHTML=icon;li.classList.remove('main-navBar-navBarLinkActive');}};p.appendChild(li);log('Injected');}function handlePopState(e){var c=document.getElementById(id);if(!c)return;var st=(e&&e.state)||{};if(st.app==='%s'){c.style.display='block';active=true;}else{c.style.display='none';active=false;}}window.addEventListener('popstate',handlePopState);setTimeout(inject,2000);})();",
 		name, name, jsEscape(icon), jsEscape(activeIcon), name,
 		name, name, name, name)
 	return js

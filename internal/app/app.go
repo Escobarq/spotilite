@@ -20,6 +20,7 @@ import (
 	"spotilite/internal/shortcut"
 	"spotilite/internal/spotify"
 	"spotilite/internal/spotify/modules"
+	"spotilite/internal/spotify/spicetify"
 	"spotilite/internal/themes"
 	apptray "spotilite/internal/systray"
 )
@@ -77,13 +78,19 @@ func (a *App) Startup(ctx context.Context) {
 		slog.Warn("failed to start ad-block proxy", "error", err)
 	}
 
-	// Prepare the full injection payload: Spicetify wrapper + theme +
-	// extensions + custom apps. This payload is prepended before the builtin
-	// modules and the title bar on every injection tick.
+	// Build the full injection payload that runs *after* the bundled spicetify
+	// shims. spicetify-js lives in SetExtraCSS/SetExtraJS separately; extra
+	// here carries the runtime overlay (DevTools shortcut, etc.).
 	var extra strings.Builder
 
-	// Note: spicetify.Bundle() is injected separately in the Injector
+	// Build Spicetify wrapper bundle (matches spicetify-cli apply.go htmlMod).
+	spiceJS, spiceCSS := a.buildSpicetifyPayload()
+	extra.WriteString(spiceJS)
+	if spiceCSS != "" {
+		a.injector.SetExtraCSS(spiceCSS)
+	}
 
+	// DevTools hotkey (Ctrl+Shift+D)
 	extra.WriteString(`(function(){
 var pressed={};
 window.addEventListener('keydown',function(e){
@@ -102,24 +109,69 @@ console.warn('[Spotilite] DevTools not available via chrome.webview');
 window.addEventListener('keyup',function(e){delete pressed[e.key];});
 })();`)
 
-	// Extensions
-	if a.cfg != nil {
-		extNames := a.cfg.EnabledExtensions()
-		if len(extNames) > 0 {
-			script, skipped, err := a.extLoader.LoadAndBundle(extNames)
+	slog.Info("[Spotilite] ExtraJS prepared", "len", extra.Len())
+	a.injector.SetExtraJS(extra.String())
+	a.injector.Start(ctx)
+}
+
+// buildSpicetifyPayload assembles the runtime Spicetify bundle for injection
+// into the Spotify webview. It returns (js, css). Order matches the
+// spicetify-cli apply package: shims first, then Spicetify.Config, then
+// theme.js, helpers, user extensions, custom apps.
+//
+// If no config is loaded we still emit the bare shims so extensions that
+// install only require Spicetify events / URI etc. continue to work.
+func (a *App) buildSpicetifyPayload() (js string, css string) {
+	ctx := spicetify.BuildContext{
+		Config:   a.cfg,
+		LocalAPI: spotify.APIBaseURL,
+	}
+
+	// Theme: best-effort; missing theme leaves css "" (no-op in injector).
+	if a.cfg != nil && a.cfg.CurrentTheme != "" && a.themeManager != nil {
+		if t, err := a.themeManager.Load(a.cfg.CurrentTheme); err == nil {
+			ctx.Theme = t
+		} else {
+			slog.Warn("theme not loaded; skipping theme injection", "theme", a.cfg.CurrentTheme, "error", err)
+		}
+	}
+
+	// Extensions: load files declared in AdditionalOptions; missing ones are
+	// logged and skipped (matches spicetify-cli error visibility).
+	if a.cfg != nil && a.extLoader != nil {
+		names := a.cfg.EnabledExtensions()
+		if len(names) > 0 {
+			loaded, skipped, err := a.extLoader.Load(names)
 			if err != nil {
 				slog.Warn("extension loader error", "error", err)
 			}
 			if len(skipped) > 0 {
 				slog.Warn("skipped extensions not found on disk", "names", skipped)
 			}
-			extra.WriteString(script)
+			ctx.Extensions = loaded
 		}
 	}
 
-	slog.Info("[Spotilite] ExtraJS prepared", "len", extra.Len())
-	a.injector.SetExtraJS(extra.String())
-	a.injector.Start(ctx)
+	// Custom apps: same shape.
+	if a.cfg != nil && a.appManager != nil {
+		apps := make([]*customapps.App, 0)
+		for _, name := range a.cfg.CustomApps {
+			if strings.HasSuffix(name, "-") {
+				continue
+			}
+			app, err := a.appManager.Load(strings.TrimSuffix(name, "-"))
+			if err != nil {
+				slog.Warn("custom app load failed", "name", name, "error", err)
+				continue
+			}
+			apps = append(apps, app)
+		}
+		ctx.CustomApps = apps
+	}
+
+	js = spicetify.Bundle(ctx)
+	css = ctx.ThemeCSS()
+	return
 }
 
 func (a *App) Shutdown(_ context.Context) {
@@ -205,6 +257,144 @@ func (a *App) GetSpotXSettings() api.SpotXSettings {
 		settings.TrackHistory = m.Enabled()
 	}
 	return settings
+}
+
+// --- spicetify bridge ---------------------------------------------------------
+//
+// Implements api.SpicetifyHandler. These methods extend the API surface that
+// webview-side extensions consult when they need to know the active
+// configuration or to ask Go to switch themes / toggle extensions / reload
+// the injection payload.
+
+func (a *App) GetSpicetifyConfig() api.SpicetifyConfigDTO {
+	dto := api.SpicetifyConfigDTO{
+		Version:              "spotilite-1.0",
+		LocalAPI:             "http://localhost:" + api.DefaultPort,
+		InjectCSS:            true,
+		InjectThemeJS:        true,
+		ReplaceColors:        true,
+		SidebarConfig:        true,
+		HomeConfig:           true,
+		ExperimentalFeatures: true,
+	}
+	if a.cfg != nil {
+		dto.CurrentTheme = a.cfg.CurrentTheme
+		dto.ColorScheme = a.cfg.ColorScheme
+		dto.Extensions = append([]string(nil), a.cfg.Extensions...)
+		dto.CustomApps = append([]string(nil), a.cfg.CustomApps...)
+		dto.InjectCSS = a.cfg.InjectCSS
+		dto.InjectThemeJS = a.cfg.InjectThemeJS
+		dto.ReplaceColors = a.cfg.ReplaceColors
+		dto.SidebarConfig = a.cfg.SidebarConfig
+		dto.HomeConfig = a.cfg.HomeConfig
+		dto.ExperimentalFeatures = a.cfg.ExpFeatures
+	}
+	return dto
+}
+
+func (a *App) GetSpicetifyExtensions() []api.ExtensionDTO {
+	if a.cfg == nil || a.extLoader == nil {
+		return nil
+	}
+	names := a.cfg.Extensions
+	enabled := map[string]bool{}
+	for _, n := range a.cfg.EnabledExtensions() {
+		enabled[n] = true
+	}
+	out := make([]api.ExtensionDTO, 0, len(names))
+	for _, raw := range names {
+		clean := strings.TrimSuffix(raw, "-")
+		isMJS := strings.HasSuffix(clean, ".mjs")
+		display := clean
+		if isMJS {
+			display = strings.TrimSuffix(clean, ".mjs")
+		} else if strings.HasSuffix(clean, ".js") {
+			display = strings.TrimSuffix(clean, ".js")
+		}
+		out = append(out, api.ExtensionDTO{
+			Name:    display,
+			File:    clean,
+			Enabled: enabled[raw],
+			IsMJS:   isMJS,
+		})
+	}
+	return out
+}
+
+func (a *App) SetSpicetifyExtension(name string, enabled bool) error {
+	if a.cfg == nil {
+		return fmt.Errorf("app: no config loaded")
+	}
+	name = strings.TrimSuffix(name, ".js")
+	name = strings.TrimSuffix(name, ".mjs")
+	a.cfg.SetExtension(name, enabled)
+	if err := a.cfg.Save(); err != nil {
+		return fmt.Errorf("save config: %w", err)
+	}
+	return nil
+}
+
+func (a *App) GetSpicetifyThemes() []string {
+	if a.themeManager == nil {
+		return nil
+	}
+	return a.themeManager.ListNames()
+}
+
+func (a *App) SetSpicetifyTheme(name, colorScheme string) error {
+	if a.cfg == nil {
+		return fmt.Errorf("app: no config loaded")
+	}
+	if name == "" {
+		return fmt.Errorf("theme name empty")
+	}
+	if a.themeManager != nil {
+		if _, err := a.themeManager.Load(name); err != nil {
+			return fmt.Errorf("theme not found: %w", err)
+		}
+	}
+	a.cfg.SetTheme(name, colorScheme)
+	if err := a.cfg.Save(); err != nil {
+		return fmt.Errorf("save config: %w", err)
+	}
+	return nil
+}
+
+func (a *App) GetSpicetifyCustomApps() []string {
+	out := []string{}
+	if a.cfg != nil {
+		out = append(out, a.cfg.CustomApps...)
+	}
+	return out
+}
+
+func (a *App) SetSpicetifyCustomApp(name string, enabled bool) error {
+	if a.cfg == nil {
+		return fmt.Errorf("app: no config loaded")
+	}
+	a.cfg.SetCustomApp(name, enabled)
+	if err := a.cfg.Save(); err != nil {
+		return fmt.Errorf("save config: %w", err)
+	}
+	return nil
+}
+
+// ReloadInjection rebuilds the spicetify bundle from the current on-disk
+// config and triggers an immediate re-inject. Called by the
+// /api/spicetify/reload endpoint and any UI flow that mutates the config.
+func (a *App) ReloadInjection(ctx context.Context) error {
+	if a.ctx == nil {
+		return fmt.Errorf("app: not running")
+	}
+	slog.Info("reload injection requested from API")
+	var extra strings.Builder
+	spiceJS, spiceCSS := a.buildSpicetifyPayload()
+	extra.WriteString(spiceJS)
+	a.injector.SetExtraJS(extra.String())
+	if spiceCSS != "" {
+		a.injector.SetExtraCSS(spiceCSS)
+	}
+	return nil
 }
 
 func (a *App) OnBeforeClose(_ context.Context) bool {

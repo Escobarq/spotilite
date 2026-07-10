@@ -23,6 +23,7 @@ const (
 type Injector struct {
 	modules  []modules.Module
 	extraJS  string
+	extraCSS string
 }
 
 func NewInjector(modList ...modules.Module) *Injector {
@@ -59,6 +60,10 @@ func (i *Injector) SetExtraJS(js string) {
 	i.extraJS = js
 }
 
+func (i *Injector) SetExtraCSS(css string) {
+	i.extraCSS = css
+}
+
 func (i *Injector) Start(ctx context.Context) {
 	slog.Info("navigating to spotify", "url", SpotifyURL)
 	runtime.WindowExecJS(ctx, "console.log('[Spotilite] Starting navigation');window.location.href='"+SpotifyURL+"';console.log('[Spotilite] Navigation triggered')")
@@ -92,8 +97,9 @@ func (i *Injector) run(ctx context.Context) {
 func (i *Injector) inject(ctx context.Context) {
 	modulesScript := i.buildModulesScript()
 	extra := i.extraJS
+	spiceCSS := i.extraCSS
 
-	slog.Info("[Spotilite] Injection called", "extraLen", len(extra), "modulesLen", len(modulesScript))
+	slog.Info("[Spotilite] Injection called", "extraLen", len(extra), "modulesLen", len(modulesScript), "spiceCSSLen", len(spiceCSS))
 
 	// Build full code: modules + extra
 	fullCode := modulesScript + extra
@@ -101,7 +107,17 @@ func (i *Injector) inject(ctx context.Context) {
 	// Use base64 + decodeURIComponent(escape(atob())) to handle UTF-8 correctly
 	b64 := b64Encode(fullCode)
 	evalScript := "try{var s=atob('" + b64 + "');var decoded=decodeURIComponent(escape(s));eval(decoded);console.log('[Spotilite] Injected successfully');}catch(e){console.error('[Spotilite] Injection error:',e.message||String(e));};"
-	runtime.WindowExecJS(ctx, evalScript)
+
+	// Spicetify theme CSS (separate <style> so we can refresh it without
+	// re-evaluating the JS bundle). Emitted as its own base64 payload to keep
+	// UTF-8 working for arbitrary color.ini user.css content.
+	spiceScript := ""
+	if spiceCSS != "" {
+		spiceB64 := b64Encode(spiceCSS)
+		spiceScript = "try{var cssId='spotilite-css-spice';var existing=document.getElementById(cssId);if(existing){existing.remove();}var s2=atob('" + spiceB64 + "');var decoded2=decodeURIComponent(escape(s2));var style=document.createElement('style');style.id=cssId;style.textContent=decoded2;document.head.appendChild(style);console.log('[Spotilite] Theme CSS injected');}catch(e){console.error('[Spotilite] Theme CSS error:',e.message||String(e));};"
+	}
+
+	runtime.WindowExecJS(ctx, spiceScript+evalScript)
 	slog.Info("[Spotilite] Injection sent")
 }
 
